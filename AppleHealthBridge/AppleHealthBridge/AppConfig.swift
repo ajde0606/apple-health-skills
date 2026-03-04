@@ -76,11 +76,11 @@ final class AppConfig: ObservableObject {
         let p = Dictionary(uniqueKeysWithValues: items.compactMap { item in
             item.value.map { (item.name, $0) }
         })
-        guard let host = p["host"], let token = p["token"], let user = p["user"],
-              !host.isEmpty, !token.isEmpty, !user.isEmpty else { return false }
+        guard let host = p["host"], let token = p["token"],
+              !host.isEmpty, !token.isEmpty else { return false }
         collectorHost = host
         ingestToken   = token
-        userID        = user
+        if let user = p["user"], !user.isEmpty { userID = user }
         return true
     }
 
