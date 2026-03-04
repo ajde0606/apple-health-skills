@@ -75,16 +75,49 @@ chmod 600 "$ENV_FILE"
 echo ""
 echo "✓ .env written to $ENV_FILE"
 
-# ── 6. Tailscale instructions ──────────────────────────────────────────────────
+# ── 6. TLS certificate (required for iOS App Transport Security) ───────────────
 echo ""
-echo "─── Tailscale (required for anywhere access) ────────────────────────────"
-echo "  1. Download Tailscale for Mac: https://tailscale.com/download"
-echo "  2. Sign in and enable MagicDNS in the admin console."
-echo "  3. Download Tailscale for iOS from the App Store."
-echo "  4. Sign in with the SAME Tailscale account on your iPhone."
-echo "  5. Find your Mac's MagicDNS hostname in System Tray → Tailscale"
-echo "     It looks like: your-macbook.tail12345.ts.net"
-echo "  6. Enter that hostname in the iOS app's Collector Host field."
+echo "─── HTTPS / TLS (required for iOS) ──────────────────────────────────────"
+echo "  iOS blocks all plain HTTP traffic (App Transport Security)."
+echo "  The easiest fix: let Tailscale issue a free, trusted certificate."
+echo "  This requires MagicDNS to be enabled in your Tailscale admin console."
+echo ""
+TS_HOSTNAME=""
+if command -v tailscale &>/dev/null; then
+    TS_HOSTNAME=$(tailscale status --self --json 2>/dev/null \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))" \
+        2>/dev/null || echo "")
+fi
+
+if [ -n "$TS_HOSTNAME" ]; then
+    echo "  Detected hostname: $TS_HOSTNAME"
+    read -rp "  Issue a free TLS certificate for this hostname now? [Y/n] " SETUP_TLS
+    if [[ "${SETUP_TLS:-y}" =~ ^[Yy] ]]; then
+        CERT_DIR="$REPO_ROOT/certs"
+        mkdir -p "$CERT_DIR"
+        if tailscale cert --cert-file "$CERT_DIR/server.crt" --key-file "$CERT_DIR/server.key" "$TS_HOSTNAME"; then
+            cat >> "$ENV_FILE" <<ENVEOF
+
+AHB_TLS_CERT=$CERT_DIR/server.crt
+AHB_TLS_KEY=$CERT_DIR/server.key
+ENVEOF
+            echo "✓ TLS certificate written to $CERT_DIR/"
+            echo "  The collector will serve HTTPS — iOS connections will work."
+        else
+            echo ""
+            echo "  WARNING: 'tailscale cert' failed."
+            echo "  Make sure MagicDNS is enabled at https://login.tailscale.com/admin/dns"
+            echo "  then re-run: bash scripts/setup.sh"
+        fi
+    else
+        echo "  Skipped. Add AHB_TLS_CERT and AHB_TLS_KEY to .env when ready."
+        echo "  Without HTTPS, iOS will block all connections."
+    fi
+else
+    echo "  Could not detect a Tailscale hostname."
+    echo "  Install Tailscale, enable MagicDNS, then re-run: bash scripts/setup.sh"
+    echo "  Without HTTPS, iOS will block all connections."
+fi
 echo ""
 echo "─── Start the collector ─────────────────────────────────────────────────"
 echo "  Run this command whenever you want to receive health data:"

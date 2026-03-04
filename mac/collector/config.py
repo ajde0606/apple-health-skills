@@ -31,6 +31,8 @@ class Settings:
     allowed_devices: set[str]
     db_path: str
     user_id: str
+    tls_cert: str
+    tls_key: str
 
 
 def load_settings() -> Settings:
@@ -38,10 +40,14 @@ def load_settings() -> Settings:
     allowed = os.environ.get("AHB_ALLOWED_DEVICES", "")
     db_path = os.environ.get("AHB_DB_PATH", "db/health.db")
     user_id = os.environ.get("AHB_USER_ID", "")
+    tls_cert = os.environ.get("AHB_TLS_CERT", "")
+    tls_key = os.environ.get("AHB_TLS_KEY", "")
     allowed_devices = {item.strip() for item in allowed.split(",") if item.strip()}
     return Settings(
         ingest_token=token,
         allowed_devices=allowed_devices,
         db_path=db_path,
         user_id=user_id,
+        tls_cert=tls_cert,
+        tls_key=tls_key,
     )
