@@ -97,10 +97,13 @@ elif [ -n "$TS_IP" ]; then
     if $TLS_OK; then
         # TLS cert is bound to the hostname — IP-based URL would cause a
         # hostname-mismatch error (-1200) on iOS. Only show the hostname URL.
-        if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
-            echo "    $SCHEME://$TS_HOSTNAME:8443/qr   ← scan this one"
+        # The /qr endpoint uses AHB_HOSTNAME so the QR payload always contains
+        # the hostname even if you access the page via the Tailscale IP.
+        if [ -n "$TS_HOSTNAME" ]; then
+            echo "    $SCHEME://$TS_IP:8443/qr   ← open this in your browser, then scan"
+            echo "    (The QR code will encode the hostname $TS_HOSTNAME, not the IP)"
         else
-            echo "    (waiting for MagicDNS hostname to resolve before showing QR URL)"
+            echo "    (no Tailscale hostname found — enable MagicDNS and re-run setup.sh)"
             echo "    Enable MagicDNS at https://login.tailscale.com/admin/dns"
         fi
     else

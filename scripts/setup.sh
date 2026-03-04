@@ -121,6 +121,7 @@ elif [ -n "$TS_HOSTNAME" ]; then
 
 AHB_TLS_CERT=$CERT_DIR/server.crt
 AHB_TLS_KEY=$CERT_DIR/server.key
+AHB_HOSTNAME=$TS_HOSTNAME:8443
 ENVEOF
             echo "✓ TLS certificate written to $CERT_DIR/"
             echo "  The collector will serve HTTPS — iOS connections will work."
