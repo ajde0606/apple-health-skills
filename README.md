@@ -166,6 +166,11 @@ bash scripts/start.sh
 > and fill in the fields under *Manual Override*: User ID, Collector Host, and
 > Auth Token.
 
+The app home screen now includes a **Sync Logs** panel with timestamped sync events
+(authorization, background triggers, queued retries, and upload outcomes).
+When running `bash scripts/start.sh`, the collector also prints timestamped events
+for startup, `/healthz`, `/qr`, and `/ingest` requests.
+
 ---
 
 ## Step 4 — Talk to the agent
