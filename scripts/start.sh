@@ -94,9 +94,20 @@ elif [ -n "$TS_IP" ]; then
     fi
     echo ""
     echo "  QR code (open in browser on this Mac, then scan with iPhone):"
-    echo "    $SCHEME://$TS_IP:8443/qr"
-    if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
-        echo "    $SCHEME://$TS_HOSTNAME:8443/qr"
+    if $TLS_OK; then
+        # TLS cert is bound to the hostname — IP-based URL would cause a
+        # hostname-mismatch error (-1200) on iOS. Only show the hostname URL.
+        if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
+            echo "    $SCHEME://$TS_HOSTNAME:8443/qr   ← scan this one"
+        else
+            echo "    (waiting for MagicDNS hostname to resolve before showing QR URL)"
+            echo "    Enable MagicDNS at https://login.tailscale.com/admin/dns"
+        fi
+    else
+        echo "    $SCHEME://$TS_IP:8443/qr"
+        if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
+            echo "    $SCHEME://$TS_HOSTNAME:8443/qr"
+        fi
     fi
 fi
 echo ""

@@ -40,6 +40,22 @@ final class AppConfig: ObservableObject {
 
     // MARK: - Derived helpers
 
+    /// True when the stored host looks like a bare IP address (v4 or v6).
+    /// TLS certs are issued for hostnames, so an IP host causes error -1200.
+    var hostIsRawIP: Bool {
+        let host = collectorHost
+            .trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "https://", with: "")
+            .replacingOccurrences(of: "http://", with: "")
+            .components(separatedBy: ":").first ?? ""
+        // IPv4: four dot-separated decimal octets
+        let v4 = #"^\d{1,3}(\.\d{1,3}){3}$"#
+        if host.range(of: v4, options: .regularExpression) != nil { return true }
+        // IPv6: contains colons and no dots (simplified but sufficient)
+        if host.contains(":") && !host.contains(".") { return true }
+        return false
+    }
+
     /// True once the user has filled in all required fields.
     var isConfigured: Bool {
         !collectorHost.trimmingCharacters(in: .whitespaces).isEmpty &&
