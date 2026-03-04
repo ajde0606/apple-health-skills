@@ -155,10 +155,21 @@ bash scripts/start.sh
 1. Tap **Authorize HealthKit** and grant read permissions.
 2. Tap **Bootstrap Sync (Last 14 Days)** for the initial upload.
 3. Tap **Incremental Sync** any time after that.
+4. Leave the app installed and backgrounded to receive HealthKit observer updates.
+   The app now registers background delivery for heart rate, blood glucose, and sleep.
 
+> Background delivery is best-effort on iOS and may arrive minutes to hours later.
+> If you force-quit the app from the app switcher, iOS can suppress background
+> observer execution until you open the app again.
+>
 > **Manual setup (fallback):** If you can't use the QR code, tap the gear icon
 > and fill in the fields under *Manual Override*: User ID, Collector Host, and
 > Auth Token.
+
+The app home screen now includes a **Sync Logs** panel with timestamped sync events
+(authorization, background triggers, queued retries, and upload outcomes).
+When running `bash scripts/start.sh`, the collector also prints timestamped events
+for startup, `/healthz`, `/qr`, and `/ingest` requests.
 
 ---
 
@@ -183,6 +194,16 @@ The agent uses the `openclaw-skill/SKILL.md` skill definition to run:
 ```bash
 python scripts/query_health.py --window-hours 24 --sleep-nights 7
 ```
+
+Install this skill into your Codex local skills directory with:
+
+```bash
+bash scripts/install_skill.sh
+```
+
+This copies the skill definition and `query_health.py` into
+`$CODEX_HOME/skills/apple-health-query` (or `~/.codex/skills/apple-health-query`).
+Use `--force` to replace an existing install.
 
 You can also run it manually at any time.
 

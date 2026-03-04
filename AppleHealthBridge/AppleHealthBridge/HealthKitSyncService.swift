@@ -5,9 +5,16 @@ import HealthKit
 final class HealthKitSyncService {
     private let healthStore = HKHealthStore()
     private let anchorStore = AnchorStore()
+    private var observerQueries: [HKObserverQuery] = []
 
     private var quantityTypes: [HKQuantityTypeIdentifier] {
         [.heartRate, .bloodGlucose]
+    }
+
+    private var monitoredSampleTypes: [HKSampleType] {
+        let quantities = quantityTypes.compactMap { HKObjectType.quantityType(forIdentifier: $0) }
+        let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis).map { [$0 as HKSampleType] } ?? []
+        return quantities + sleep
     }
 
     func requestAuthorization() async throws {
@@ -36,6 +43,43 @@ final class HealthKitSyncService {
 
     func collectIncrementalSamples() async throws -> [AnySample] {
         return try await collectSamples(since: nil, useAnchors: true)
+    }
+
+    func enableBackgroundDelivery() async throws {
+        for sampleType in monitoredSampleTypes {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                healthStore.enableBackgroundDelivery(for: sampleType, frequency: .immediate) { success, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if success {
+                        continuation.resume(returning: ())
+                    } else {
+                        continuation.resume(throwing: URLError(.cannotLoadFromNetwork))
+                    }
+                }
+            }
+        }
+    }
+
+    func startObserverQueries(onUpdate: @escaping () async -> Void) {
+        stopObserverQueries()
+
+        for sampleType in monitoredSampleTypes {
+            let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { _, completionHandler, _ in
+                Task {
+                    await onUpdate()
+                }
+                completionHandler()
+            }
+
+            observerQueries.append(query)
+            healthStore.execute(query)
+        }
+    }
+
+    func stopObserverQueries() {
+        observerQueries.forEach { healthStore.stop($0) }
+        observerQueries.removeAll()
     }
 
     private func collectSamples(since startDate: Date?, useAnchors: Bool) async throws -> [AnySample] {
