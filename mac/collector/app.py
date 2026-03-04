@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import io
 import sqlite3
 import time
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+import qrcode
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.responses import Response
 
 from .config import Settings, load_settings
 from .db import connect, init_db, insert_ingest_batch, upsert_samples
@@ -34,6 +37,17 @@ def startup() -> None:
         init_db(conn)
     finally:
         conn.close()
+
+
+@app.get("/qr", response_class=Response)
+def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Response:
+    """Return a PNG QR code that the iPhone app can scan for one-tap setup."""
+    host = request.headers.get("host", "localhost:8443")
+    payload = f"ahb://configure?host={host}&token={settings.ingest_token}&user={settings.user_id}"
+    img = qrcode.make(payload)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 
 @app.get("/healthz")
