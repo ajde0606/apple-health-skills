@@ -1,52 +1,41 @@
+---
+name: apple-health-query
+description: Use this skill when the user asks for Apple Health summaries, trends, alerts, or check-ins from the local collector. Validate collector connectivity over HTTP and fetch fresh data with shell commands before giving coaching-style guidance.
+---
+
 # Apple Health Query Skill
 
-Use this skill to fetch recent health data from the local SQLite store populated
-by the collector and provide real-time monitoring, pattern detection, and advice.
+Use this skill to analyze Apple Health data already synced into local SQLite by the collector.
 
-## Prerequisites
+## Tools to use
 
-The user must have run `bash scripts/setup.sh` and have the collector running
-(`bash scripts/start.sh`). `.env` in the repo root provides `AHB_USER_ID` and
-`AHB_DB_PATH` automatically.
+- **Shell tool**: run `scripts/query_health.py` to pull fresh JSON data.
+- **HTTP tool**: optionally verify collector availability with `/healthz` before troubleshooting missing data.
 
-## Command
+## Workflow
 
-```bash
-python scripts/query_health.py --window-hours 24 --sleep-nights 7 --types heart_rate,glucose,sleep_stage
-```
+1. **(Optional health check) Verify collector is reachable** when user reports stale/missing data:
+   - `curl -fsS http://<collector-host>:8443/healthz`
+   - if TLS is enabled: `curl -fsS https://<collector-host>:8443/healthz`
+2. **Query the local database via shell** (preferred default):
+   - `python scripts/query_health.py --window-hours 24 --sleep-nights 7 --types heart_rate,glucose,sleep_stage`
+3. **Adjust parameters to user intent**:
+   - Short check-in: `--window-hours 1`
+   - Daily review: `--window-hours 24 --sleep-nights 7`
+   - Alert follow-up: keep `--types` narrow to requested metrics.
+4. **Summarize with numbers and timestamps**, then give practical next steps.
+5. **Always include safety framing**: informational only, not medical advice; suggest clinician contact for extreme/persistent readings.
 
-> `--user-id` and `--db` are read from `.env` automatically; no need to
-> hard-code any user-specific values.
+## Output expectations
 
-## Output contract
+Base your answer on the returned JSON fields:
+- `generated_at`, `user_id`, `window_hours`
+- `quantity.<metric>[]` entries with `{ts, value, unit, source, device}`
+- `sleep[]` entries with `{start_ts, end_ts, category, source, device}`
 
-JSON object with:
-- `generated_at` — ISO-8601 timestamp of query
-- `user_id` — whose data this is
-- `window_hours` — quantity sample lookback window
-- `quantity` — map of metric type → array of `{ts, value, unit, source, device}`
-- `sleep` — array of `{start_ts, end_ts, category, source, device}` segments
+## Response style guardrails
 
-## What the agent should do
-
-1. **Run the command** to fetch fresh data.
-2. **Summarise** key metrics: resting heart rate trend, glucose levels, sleep
-   duration and quality (deep/REM breakdown).
-3. **Detect patterns** worth flagging:
-   - Heart rate sustained above 100 bpm at rest → suggest checking in.
-   - Glucose above 180 mg/dL or below 70 mg/dL → flag immediately.
-   - Less than 6 hours total sleep or <10% deep sleep → recovery advice.
-   - Sudden resting HR spike vs 7-day baseline → note it.
-4. **Give actionable advice** tied to the specific numbers (e.g. "Your glucose
-   peaked at 142 mg/dL two hours after dinner — that's within range, but worth
-   watching if it happens again").
-5. **Offer to re-check** on a cadence the user requests ("Check again in 30
-   minutes and alert me if HR goes above 90").
-6. **Always cite** the time window used ("based on the last 24 hours / 7 nights").
-
-## Important notes
-
-- Informational only — not medical advice.
-- For extreme or persistent values recommend the user consult a clinician.
-- Never hardcode a user ID; always rely on the `AHB_USER_ID` env variable
-  loaded from `.env`.
+- Cite the exact time window used (for example: “last 24 hours” and “last 7 nights”).
+- Highlight notable thresholds carefully (e.g., glucose outside typical 70–180 mg/dL range).
+- Tie suggestions to observed values; avoid generic advice.
+- Never hardcode user IDs or DB paths—`scripts/query_health.py` already reads `.env`.

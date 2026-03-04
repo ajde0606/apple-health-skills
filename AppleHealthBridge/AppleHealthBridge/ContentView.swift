@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var coordinator = SyncCoordinator()
+    @EnvironmentObject private var coordinator: SyncCoordinator
     @ObservedObject private var config = AppConfig.shared
 
     var body: some View {
@@ -35,6 +35,24 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(!config.isConfigured)
+
+                GroupBox("Sync Logs") {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 6) {
+                            if coordinator.logs.isEmpty {
+                                Text("No logs yet")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(Array(coordinator.logs.enumerated()), id: \.offset) { _, line in
+                                    Text(line)
+                                        .font(.caption2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 180)
+                }
 
                 Spacer()
             }
