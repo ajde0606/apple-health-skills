@@ -30,7 +30,7 @@ class CategorySample(BaseModel):
 
 
 class IngestPayload(BaseModel):
-    batch_id: str = Field(min_length=8)
+    batch_id: str = Field(min_length=1)
     device_id: str = Field(min_length=3)
     user_id: str = Field(min_length=1)
     sent_at: int
