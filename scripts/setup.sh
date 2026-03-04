@@ -112,7 +112,11 @@ elif [ -n "$TS_HOSTNAME" ]; then
     if [[ "${SETUP_TLS:-y}" =~ ^[Yy] ]]; then
         CERT_DIR="$REPO_ROOT/certs"
         mkdir -p "$CERT_DIR"
-        if tailscale cert --cert-file "$CERT_DIR/server.crt" --key-file "$CERT_DIR/server.key" "$TS_HOSTNAME"; then
+        _CERT_ERR=$(tailscale cert \
+            --cert-file "$CERT_DIR/server.crt" \
+            --key-file  "$CERT_DIR/server.key" \
+            "$TS_HOSTNAME" 2>&1) && _CERT_OK=true || _CERT_OK=false
+        if $_CERT_OK; then
             cat >> "$ENV_FILE" <<ENVEOF
 
 AHB_TLS_CERT=$CERT_DIR/server.crt
@@ -123,8 +127,19 @@ ENVEOF
         else
             echo ""
             echo "  WARNING: 'tailscale cert' failed."
-            echo "  Make sure MagicDNS is enabled at https://login.tailscale.com/admin/dns"
-            echo "  then re-run: bash scripts/setup.sh"
+            if echo "$_CERT_ERR" | grep -qi "does not support\|not support.*tls\|not support.*cert"; then
+                echo ""
+                echo "  Your Tailscale account has HTTPS certificates disabled."
+                echo "  Fix:"
+                echo "    1. Go to https://login.tailscale.com/admin/dns"
+                echo "    2. Scroll to 'HTTPS Certificates' and click Enable"
+                echo "    3. Re-run: bash scripts/setup.sh"
+            else
+                echo "  $_CERT_ERR"
+                echo "  Make sure MagicDNS and HTTPS Certificates are both enabled at"
+                echo "  https://login.tailscale.com/admin/dns"
+                echo "  then re-run: bash scripts/setup.sh"
+            fi
         fi
     else
         echo "  Skipped. Add AHB_TLS_CERT and AHB_TLS_KEY to .env when ready."
