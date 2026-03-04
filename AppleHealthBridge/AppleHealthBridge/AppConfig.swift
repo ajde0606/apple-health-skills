@@ -63,6 +63,27 @@ final class AppConfig: ObservableObject {
         return URL(string: raw + "/ingest")!
     }
 
+    // MARK: - QR setup
+
+    /// Parse an `ahb://configure?host=…&token=…&user=…` deep-link and apply all fields.
+    /// Returns `true` if the payload was valid and all fields were set.
+    @discardableResult
+    func apply(qrPayload: String) -> Bool {
+        guard let url = URL(string: qrPayload),
+              url.scheme == "ahb",
+              let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let items = comps.queryItems else { return false }
+        let p = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+        guard let host = p["host"], let token = p["token"], let user = p["user"],
+              !host.isEmpty, !token.isEmpty, !user.isEmpty else { return false }
+        collectorHost = host
+        ingestToken   = token
+        userID        = user
+        return true
+    }
+
     // MARK: - Init
 
     private init() {
