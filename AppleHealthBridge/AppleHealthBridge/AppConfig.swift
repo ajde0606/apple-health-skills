@@ -54,7 +54,7 @@ final class AppConfig: ObservableObject {
     var ingestURL: URL {
         var raw = collectorHost.trimmingCharacters(in: .whitespaces)
         if !raw.hasPrefix("http://") && !raw.hasPrefix("https://") {
-            raw = "http://\(raw)"
+            raw = "https://\(raw)"
         }
         if !raw.contains(":8443") && !raw.hasSuffix("/") {
             // Default port if user omits it

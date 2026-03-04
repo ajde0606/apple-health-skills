@@ -27,7 +27,7 @@ struct SettingsView: View {
             } header: {
                 Text("Quick Setup")
             } footer: {
-                Text("Open http://<your-mac>:8443/qr in a browser and scan the code to fill in all fields at once.")
+                Text("Open https://<your-mac>:8443/qr in a browser and scan the code to fill in all fields at once.")
             }
 
             // ── Status ────────────────────────────────────────────
