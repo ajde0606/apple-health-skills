@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var coordinator = SyncCoordinator()
+    @EnvironmentObject private var coordinator: SyncCoordinator
     @ObservedObject private var config = AppConfig.shared
 
     var body: some View {

@@ -155,7 +155,13 @@ bash scripts/start.sh
 1. Tap **Authorize HealthKit** and grant read permissions.
 2. Tap **Bootstrap Sync (Last 14 Days)** for the initial upload.
 3. Tap **Incremental Sync** any time after that.
+4. Leave the app installed and backgrounded to receive HealthKit observer updates.
+   The app now registers background delivery for heart rate, blood glucose, and sleep.
 
+> Background delivery is best-effort on iOS and may arrive minutes to hours later.
+> If you force-quit the app from the app switcher, iOS can suppress background
+> observer execution until you open the app again.
+>
 > **Manual setup (fallback):** If you can't use the QR code, tap the gear icon
 > and fill in the fields under *Manual Override*: User ID, Collector Host, and
 > Auth Token.
