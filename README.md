@@ -1,226 +1,197 @@
-# Apple Health Skills
+# Apple Health Bridge
 
-This repository contains an end-to-end local Apple Health Bridge prototype:
+Stream your iPhone's Apple Health data to your Mac in real time. An AI agent
+(OpenClaw / Claude Code) monitors it, spots patterns, and gives you proactive
+advice — all stored locally, never in the cloud.
 
-- **iOS app skeleton** to read HealthKit data and upload batches
-- **Mac collector service** (FastAPI) to validate/authenticate ingest requests
-- **SQLite local store** for raw samples and ingest batch idempotency
-- **Query script** for OpenClaw/local analysis workflows
-
----
-
-## 1) Prerequisites
-
-## Mac / collector side
-
-1. Python 3.10+
-2. (Recommended) virtual environment tooling
-3. Network path from iPhone to Mac collector (VPN overlay like Tailscale recommended)
-
-## iOS side
-
-1. Xcode 15+
-2. iPhone with Health data available
-3. Apple Developer signing setup for running on device
+```
+iPhone ──HealthKit──► AppleHealthBridge app
+                              │  (Tailscale VPN)
+                              ▼
+                     Mac collector (FastAPI)
+                              │
+                              ▼
+                       SQLite (local only)
+                              │
+                              ▼
+               OpenClaw agent  →  alerts & advice
+```
 
 ---
 
-## 2) Clone and install dependencies
+## Who is this for?
+
+Anyone on a Mac who wants private, AI-assisted health monitoring. There are no
+shared servers, no accounts to create, and no cloud services — everything runs
+on your own machine.
+
+---
+
+## Step 1 — iPhone setup
+
+Install two apps from the App Store:
+
+| App | Purpose |
+|-----|---------|
+| **AppleHealthBridge** | Reads HealthKit and uploads to your Mac |
+| **Tailscale** | Secure VPN so your iPhone can reach your Mac from anywhere |
+
+Sign in to Tailscale with any account (Google, GitHub, Apple, or email).
+
+---
+
+## Step 2 — Mac setup
+
+### 2.1 Install Tailscale on Mac
+
+Download from [tailscale.com/download](https://tailscale.com/download) and sign
+in with the **same** Tailscale account you used on iOS. Enable **MagicDNS** in
+the Tailscale admin console — this gives your Mac a stable hostname like
+`your-macbook.tail12345.ts.net`.
+
+### 2.2 Clone and run setup
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/your-org/apple-health-skills.git
 cd apple-health-skills
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+bash scripts/setup.sh
 ```
 
----
+`setup.sh` will:
+- Create a Python virtual environment and install dependencies
+- Ask for your **user ID** (e.g. `alice`) and **iPhone Device ID**
+  (shown on the iOS app's Setup screen)
+- Generate a strong random auth token and print it
+- Write everything to a `.env` file (never committed to git)
+- Print next steps
 
-## 3) Start the Mac collector
-
-### 3.1 Configure environment variables
+### 2.3 Start the collector
 
 ```bash
-export AHB_INGEST_TOKEN='dev-token'
-export AHB_ALLOWED_DEVICES='dad-iphone'
-export AHB_DB_PATH='db/health.db'
+bash scripts/start.sh
 ```
 
-### 3.2 Start the service
+The collector listens on port **8443**. Leave this terminal running (or set up
+`launchd` — see [Autostart](#autostart)).
 
-```bash
-python -m mac.collector.main
-```
-
-The service listens on `http://0.0.0.0:8443` by default.
-
-### 3.3 Verify health endpoint
-
-In a second terminal:
+### 2.4 Verify
 
 ```bash
 curl -s http://127.0.0.1:8443/healthz
-```
-
-Expected: JSON like `{"ok":"true","ts":...}`.
-
----
-
-## 4) Test ingest API directly (without iOS)
-
-Run this request while collector is running:
-
-```bash
-curl -s -X POST http://127.0.0.1:8443/ingest \
-  -H 'Content-Type: application/json' \
-  -H 'X-Ingest-Token: dev-token' \
-  -d '{
-    "batch_id": "batch-001",
-    "device_id": "dad-iphone",
-    "user_id": "dad",
-    "sent_at": 1735863982,
-    "samples": [
-      {
-        "sample_id": "sample-001-heart",
-        "kind": "quantity",
-        "type": "heart_rate",
-        "ts": 1735863982,
-        "value": 61,
-        "unit": "bpm",
-        "source": "Apple Watch"
-      },
-      {
-        "sample_id": "sample-001-sleep",
-        "kind": "category",
-        "type": "sleep_stage",
-        "start_ts": 1735820000,
-        "end_ts": 1735823600,
-        "category": "asleep",
-        "source": "iPhone"
-      }
-    ]
-  }'
-```
-
-Expected first response: `{"ok":true,"duplicate_batch":false,...}`.
-
-### 4.1 Verify idempotent batch behavior
-
-Send the exact same request again.
-
-Expected second response: `{"ok":true,"duplicate_batch":true,...}`.
-
----
-
-## 5) Validate SQLite contents and query script
-
-### 5.1 Query with helper script
-
-```bash
-python scripts/query_health.py --db db/health.db --user-id dad --window-hours 24 --sleep-nights 7 --types heart_rate,glucose
-```
-
-Expected:
-
-- `quantity.heart_rate` should include your ingested heart-rate sample
-- `sleep` should include the sleep segment row
-
-### 5.2 Optional raw SQLite checks
-
-```bash
-sqlite3 db/health.db 'select count(*) from ingest_batches;'
-sqlite3 db/health.db 'select count(*) from quantity_samples;'
-sqlite3 db/health.db 'select count(*) from category_samples;'
+# → {"ok":"true","ts":...}
 ```
 
 ---
 
-## 6) Run automated tests
+## Step 3 — Connect the iOS app
+
+1. Open **AppleHealthBridge** on your iPhone.
+2. Tap the **gear icon** (top right) to open Setup.
+3. Fill in:
+   - **User ID** — same value you entered during `setup.sh` (e.g. `alice`)
+   - **Collector Host** — your Mac's Tailscale hostname
+     (e.g. `your-macbook.tail12345.ts.net`)
+   - **Auth Token** — the token printed by `setup.sh`
+   - **Device ID** — copy the auto-generated value shown at the top of Setup,
+     then paste it into `setup.sh` when prompted (or add it to
+     `AHB_ALLOWED_DEVICES` in `.env` and restart the collector)
+4. Tap **Authorize HealthKit** and grant read permissions.
+5. Tap **Bootstrap Sync (Last 14 Days)** to do the initial upload.
+6. Tap **Incremental Sync** any time (or let future background delivery handle it).
+
+---
+
+## Step 4 — Talk to the agent
+
+Open Claude Code (OpenClaw) in the repo directory:
 
 ```bash
+cd apple-health-skills
+claude
+```
+
+The `.env` file is loaded automatically by the query script, so the agent
+already knows your user ID and DB path. Ask things like:
+
+- *"What's my heart rate trend over the last 24 hours?"*
+- *"How was my sleep last night? Any patterns worth watching?"*
+- *"Alert me if my resting HR goes above 90 bpm — check every 30 minutes."*
+
+The agent uses the `openclaw-skill/SKILL.md` skill definition to run:
+
+```bash
+python scripts/query_health.py --window-hours 24 --sleep-nights 7
+```
+
+You can also run it manually at any time.
+
+---
+
+## Autostart
+
+To keep the collector running 24/7, create a launchd agent:
+
+```bash
+# Create ~/Library/LaunchAgents/com.ahb.collector.plist
+# (edit paths below to match your actual repo location)
+
+cat > ~/Library/LaunchAgents/com.ahb.collector.plist <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>       <string>com.ahb.collector</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/YOUR/PATH/apple-health-skills/scripts/start.sh</string>
+  </array>
+  <key>RunAtLoad</key>   <true/>
+  <key>KeepAlive</key>   <true/>
+  <key>StandardOutPath</key> <string>/tmp/ahb-collector.log</string>
+  <key>StandardErrorPath</key><string>/tmp/ahb-collector.log</string>
+</dict>
+</plist>
+EOF
+
+launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `401 Unauthorized` | Token in iOS app doesn't match `AHB_INGEST_TOKEN` in `.env` |
+| `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — re-run `setup.sh` or edit `.env` |
+| iOS can't connect | Confirm both devices are on Tailscale, MagicDNS is enabled, hostname resolves |
+| No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
+| Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
+
+---
+
+## Environment variables (`.env`)
+
+| Variable | Description |
+|----------|-------------|
+| `AHB_USER_ID` | Short user identifier (e.g. `alice`) — namespaces all DB rows |
+| `AHB_INGEST_TOKEN` | Random secret — must match iOS app Auth Token |
+| `AHB_ALLOWED_DEVICES` | Comma-separated device IDs allowed to ingest |
+| `AHB_DB_PATH` | Path to SQLite database (default `db/health.db`) |
+
+---
+
+## Run tests
+
+```bash
+source .venv/bin/activate
 pytest -q
 ```
 
-This validates DB batch idempotency and sample dedupe behavior.
-
 ---
 
-## 7) Set up iOS app and test HealthKit sync
+## Architecture
 
-<<<<<<< HEAD
-The Swift source is under `ios/AppleHealthBridge/AppleHealthBridge`.
-
-### 7.1 Create and configure Xcode app target
-
-1. Create an iOS SwiftUI app target named **AppleHealthBridge**.
-2. Copy all `.swift` files from `ios/AppleHealthBridge/AppleHealthBridge/` into the target.
-=======
-The Swift source is under `ios/HealthBridgeApp/HealthBridgeApp`.
-
-### 7.1 Create and configure Xcode app target
-
-1. Create an iOS SwiftUI app target named **HealthBridgeApp**.
-2. Copy all `.swift` files from `ios/HealthBridgeApp/HealthBridgeApp/` into the target.
->>>>>>> codex/implement-milestone-1-from-plan.md
-3. Add `NSHealthShareUsageDescription` to `Info.plist`.
-4. Enable **HealthKit** capability.
-5. (Milestone 3 later) enable background modes as needed.
-
-### 7.2 Point app to your collector
-
-<<<<<<< HEAD
-Edit `ios/AppleHealthBridge/AppleHealthBridge/AppConfig.swift`:
-=======
-Edit `ios/HealthBridgeApp/HealthBridgeApp/AppConfig.swift`:
->>>>>>> codex/implement-milestone-1-from-plan.md
-
-- `collectorURL` → your reachable Mac URL (often VPN DNS name)
-- `ingestToken` → same as `AHB_INGEST_TOKEN`
-- `deviceID` → include this value in `AHB_ALLOWED_DEVICES`
-- `userID` as desired
-
-### 7.3 Run iOS flow on device
-
-1. Launch app
-2. Tap **Authorize HealthKit** and grant read permissions
-3. Tap **Bootstrap Sync (Last 14 Days)**
-4. Tap **Incremental Sync** after new Health data is created
-
-Expected:
-
-- Status transitions to "Sync complete"
-- Collector receives `/ingest` batches
-- `db/health.db` tables grow
-
----
-
-## 8) End-to-end retry queue test (offline/online)
-
-1. Stop collector service.
-2. In iOS app, trigger sync (bootstrap or incremental).
-3. Confirm sync attempts fail and payloads are queued locally.
-4. Start collector again.
-5. Trigger another sync.
-
-Expected: queued batches flush and data appears in SQLite.
-
----
-
-## 9) Security and hardening checklist (before real use)
-
-1. Replace default ingest token with strong random secret.
-2. Restrict `AHB_ALLOWED_DEVICES` to known devices only.
-3. Run collector behind VPN/private network.
-4. Add TLS termination/certificates for iPhone-to-Mac transport.
-5. Configure launchd/LaunchAgent for always-on collector operation.
-
----
-
-## 10) Quick troubleshooting
-
-- **401 invalid token**: iOS/`curl` token does not match `AHB_INGEST_TOKEN`.
-- **403 device not allowed**: `device_id` missing from `AHB_ALLOWED_DEVICES`.
-- **No HealthKit data**: permissions not granted or no samples exist for selected types.
-- **No iOS connectivity**: verify VPN/private DNS routing from phone to Mac.
-- **Query script empty**: check `--user-id` and time window arguments.
+See [architecture.md](architecture.md) for design decisions and data flow details.
