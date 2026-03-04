@@ -83,13 +83,30 @@ echo "  The easiest fix: let Tailscale issue a free, trusted certificate."
 echo "  This requires MagicDNS to be enabled in your Tailscale admin console."
 echo ""
 TS_HOSTNAME=""
-if command -v tailscale &>/dev/null; then
-    TS_HOSTNAME=$(tailscale status --self --json 2>/dev/null \
-        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))" \
-        2>/dev/null || echo "")
+_TS_BLOCKED=""
+if ! command -v tailscale &>/dev/null; then
+    _TS_BLOCKED="not installed"
+else
+    _TS_STATUS_ERR=$(tailscale status 2>&1 >/dev/null || true)
+    if echo "$_TS_STATUS_ERR" | grep -qi "not running\|failed to connect\|is tailscale running"; then
+        _TS_BLOCKED="not running"
+    else
+        TS_HOSTNAME=$(tailscale status --self --json 2>/dev/null \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))" \
+            2>/dev/null || echo "")
+    fi
 fi
 
-if [ -n "$TS_HOSTNAME" ]; then
+if [ "$_TS_BLOCKED" = "not installed" ]; then
+    echo "  Tailscale is not installed."
+    echo "  Download from https://tailscale.com/download, sign in, then re-run setup.sh."
+    echo "  Without HTTPS, iOS will block all connections."
+elif [ "$_TS_BLOCKED" = "not running" ]; then
+    echo "  Tailscale is installed but not running."
+    echo "  Start it:  open -a Tailscale"
+    echo "  Then re-run: bash scripts/setup.sh"
+    echo "  Without HTTPS, iOS will block all connections."
+elif [ -n "$TS_HOSTNAME" ]; then
     echo "  Detected hostname: $TS_HOSTNAME"
     read -rp "  Issue a free TLS certificate for this hostname now? [Y/n] " SETUP_TLS
     if [[ "${SETUP_TLS:-y}" =~ ^[Yy] ]]; then
@@ -114,8 +131,9 @@ ENVEOF
         echo "  Without HTTPS, iOS will block all connections."
     fi
 else
-    echo "  Could not detect a Tailscale hostname."
-    echo "  Install Tailscale, enable MagicDNS, then re-run: bash scripts/setup.sh"
+    echo "  Tailscale is running but no MagicDNS hostname was found."
+    echo "  Enable MagicDNS at https://login.tailscale.com/admin/dns"
+    echo "  then re-run: bash scripts/setup.sh"
     echo "  Without HTTPS, iOS will block all connections."
 fi
 echo ""

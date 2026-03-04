@@ -28,11 +28,19 @@ set +o allexport
 # ── Connectivity diagnostics ──────────────────────────────────────────────────
 TS_IP=""
 TS_HOSTNAME=""
-if command -v tailscale &>/dev/null; then
-    TS_IP=$(tailscale ip -4 2>/dev/null || echo "")
-    TS_HOSTNAME=$(tailscale status --self --json 2>/dev/null \
-        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))" \
-        2>/dev/null || echo "")
+TS_WARN=""
+if ! command -v tailscale &>/dev/null; then
+    TS_WARN="Tailscale is not installed. Download from https://tailscale.com/download"
+else
+    _TS_STATUS_ERR=$(tailscale status 2>&1 >/dev/null || true)
+    if echo "$_TS_STATUS_ERR" | grep -qi "not running\|failed to connect\|is tailscale running"; then
+        TS_WARN="Tailscale is installed but not running. Start it: open -a Tailscale"
+    else
+        TS_IP=$(tailscale ip -4 2>/dev/null || echo "")
+        TS_HOSTNAME=$(tailscale status --self --json 2>/dev/null \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))" \
+            2>/dev/null || echo "")
+    fi
 fi
 
 SCHEME="http"
@@ -58,7 +66,10 @@ else
     echo ""
 fi
 
-if [ -n "$TS_IP" ]; then
+if [ -n "$TS_WARN" ]; then
+    echo "  Tailscale:  $TS_WARN"
+    echo ""
+elif [ -n "$TS_IP" ]; then
     # Check whether the MagicDNS hostname resolves on this machine
     DNS_OK=false
     if [ -n "$TS_HOSTNAME" ] && python3 -c "import socket; socket.getaddrinfo('$TS_HOSTNAME', 8443)" &>/dev/null; then
