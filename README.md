@@ -148,19 +148,32 @@ This validates DB batch idempotency and sample dedupe behavior.
 
 ## 7) Set up iOS app and test HealthKit sync
 
+<<<<<<< HEAD
 The Swift source is under `ios/AppleHealthBridge/AppleHealthBridge`.
 
 ### 7.1 Create and configure Xcode app target
 
 1. Create an iOS SwiftUI app target named **AppleHealthBridge**.
 2. Copy all `.swift` files from `ios/AppleHealthBridge/AppleHealthBridge/` into the target.
+=======
+The Swift source is under `ios/HealthBridgeApp/HealthBridgeApp`.
+
+### 7.1 Create and configure Xcode app target
+
+1. Create an iOS SwiftUI app target named **HealthBridgeApp**.
+2. Copy all `.swift` files from `ios/HealthBridgeApp/HealthBridgeApp/` into the target.
+>>>>>>> codex/implement-milestone-1-from-plan.md
 3. Add `NSHealthShareUsageDescription` to `Info.plist`.
 4. Enable **HealthKit** capability.
 5. (Milestone 3 later) enable background modes as needed.
 
 ### 7.2 Point app to your collector
 
+<<<<<<< HEAD
 Edit `ios/AppleHealthBridge/AppleHealthBridge/AppConfig.swift`:
+=======
+Edit `ios/HealthBridgeApp/HealthBridgeApp/AppConfig.swift`:
+>>>>>>> codex/implement-milestone-1-from-plan.md
 
 - `collectorURL` → your reachable Mac URL (often VPN DNS name)
 - `ingestToken` → same as `AHB_INGEST_TOKEN`
