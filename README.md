@@ -45,9 +45,24 @@ Sign in to Tailscale with any account (Google, GitHub, Apple, or email).
 ### 2.1 Install Tailscale on Mac
 
 Download from [tailscale.com/download](https://tailscale.com/download) and sign
-in with the **same** Tailscale account you used on iOS. Enable **MagicDNS** in
-the Tailscale admin console — this gives your Mac a stable hostname like
-`your-macbook.tail12345.ts.net`.
+in with the **same** Tailscale account you used on iOS.
+
+**Find your Mac's Tailscale address** — you'll need this for the QR code step:
+
+```bash
+# Option A: get the stable MagicDNS hostname (requires MagicDNS to be enabled)
+tailscale status --self --json | jq -r .Self.DNSName | tr -d '.'
+# → janices-macbook-air.tailcc4114.ts.net
+
+# Option B: get the Tailscale IP (always works, no DNS needed)
+tailscale ip -4
+# → 100.89.116.78
+```
+
+Enable **MagicDNS** in the [Tailscale admin console](https://login.tailscale.com/admin/dns)
+for the stable hostname to work. If MagicDNS is not yet enabled, use the
+Tailscale IP address (e.g. `100.89.116.78`) wherever a hostname is shown in
+these instructions — it works identically.
 
 ### 2.2 Clone and run setup
 
@@ -93,8 +108,9 @@ curl -s http://127.0.0.1:8443/healthz
 
 ### 3.1 Scan the QR code (recommended)
 
-1. On your Mac, open `http://<your-mac-tailscale-hostname>:8443/qr` in a browser.
-   A QR code appears that encodes your host, token, and user ID.
+1. On your Mac, open the `/qr` page in a browser — use whichever address works:
+   - `http://janices-macbook-air.tailcc4114.ts.net:8443/qr` (MagicDNS hostname)
+   - `http://100.89.116.78:8443/qr` (Tailscale IP — works even without MagicDNS)
 2. Open **AppleHealthBridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
 3. Point the camera at the QR code. All fields fill in automatically.
 
@@ -191,7 +207,8 @@ launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
 | "Unrecognised QR code" on iPhone | You scanned something other than the `/qr` endpoint; try again |
 | `401 Unauthorized` | Token in iOS app doesn't match `AHB_INGEST_TOKEN` in `.env` |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
-| iOS can't connect | Confirm both devices are on Tailscale, MagicDNS is enabled, hostname resolves |
+| `curl: (6) Could not resolve host` | MagicDNS not enabled yet — use the Tailscale IP (`tailscale ip -4`) instead of the hostname |
+| iOS can't connect | Confirm both devices are on Tailscale; if hostname fails, try the Tailscale IP directly |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
 
