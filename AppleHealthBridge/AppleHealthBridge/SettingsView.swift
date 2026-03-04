@@ -64,6 +64,16 @@ struct SettingsView: View {
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
 
+                if config.hostIsRawIP {
+                    Label {
+                        Text("Use the Tailscale **hostname** (e.g. my-mac.tail….ts.net), not the IP address. TLS certificates are issued for the hostname — connecting by IP causes error -1200.")
+                            .font(.caption)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    }
+                }
+
                 SecureField("Paste the token from your Mac", text: $config.ingestToken)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
