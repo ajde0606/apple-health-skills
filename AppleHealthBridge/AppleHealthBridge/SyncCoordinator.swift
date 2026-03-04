@@ -29,12 +29,13 @@ final class SyncCoordinator: ObservableObject {
     }
 
     private func sync(mode: SyncMode) async {
+        let config = AppConfig.shared
         do {
             status = "Collecting samples..."
             let samples: [AnySample]
             switch mode {
             case .bootstrap:
-                samples = try await healthService.collectBootstrapSamples(days: AppConfig.bootstrapDays)
+                samples = try await healthService.collectBootstrapSamples(days: config.bootstrapDays)
             case .incremental:
                 samples = try await healthService.collectIncrementalSamples()
             }
@@ -44,12 +45,12 @@ final class SyncCoordinator: ObservableObject {
                 return
             }
 
-            let chunks = samples.chunked(into: AppConfig.maxBatchSamples)
+            let chunks = samples.chunked(into: config.maxBatchSamples)
             for chunk in chunks {
                 let payload = IngestPayload(
                     batchID: UUID().uuidString,
-                    deviceID: AppConfig.deviceID,
-                    userID: AppConfig.userID,
+                    deviceID: config.deviceID,
+                    userID: config.userID,
                     sentAt: Int(Date().timeIntervalSince1970),
                     samples: chunk
                 )

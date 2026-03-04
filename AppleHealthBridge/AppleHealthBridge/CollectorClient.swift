@@ -10,11 +10,11 @@ final class CollectorClient {
     }
 
     func upload(payload: IngestPayload) async throws -> IngestResponse {
-        let url = AppConfig.collectorURL.appendingPathComponent(AppConfig.ingestPath)
-        var request = URLRequest(url: url)
+        let config = AppConfig.shared
+        var request = URLRequest(url: config.ingestURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(AppConfig.ingestToken, forHTTPHeaderField: "X-Ingest-Token")
+        request.addValue(config.ingestToken, forHTTPHeaderField: "X-Ingest-Token")
         request.timeoutInterval = 30
         request.httpBody = try encoder.encode(payload)
 
