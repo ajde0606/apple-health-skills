@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,6 +38,28 @@ class Settings:
     hostname: str  # canonical Tailscale hostname, e.g. my-mac.tail….ts.net:8443
 
 
+_tailscale_hostname_cache: str | None = None
+
+
+def _tailscale_hostname() -> str:
+    """Return '<hostname>:8443' from `tailscale status`, or '' on any failure.
+    Result is cached for the lifetime of the process."""
+    global _tailscale_hostname_cache
+    if _tailscale_hostname_cache is not None:
+        return _tailscale_hostname_cache
+    try:
+        out = subprocess.check_output(
+            ["tailscale", "status", "--self", "--json"],
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+        name = json.loads(out)["Self"]["DNSName"].rstrip(".")
+        _tailscale_hostname_cache = f"{name}:8443" if name else ""
+    except Exception:
+        _tailscale_hostname_cache = ""
+    return _tailscale_hostname_cache
+
+
 def load_settings() -> Settings:
     token = os.environ.get("AHB_INGEST_TOKEN", "dev-token")
     allowed = os.environ.get("AHB_ALLOWED_DEVICES", "")
@@ -43,7 +67,7 @@ def load_settings() -> Settings:
     user_id = os.environ.get("AHB_USER_ID", "")
     tls_cert = os.environ.get("AHB_TLS_CERT", "")
     tls_key = os.environ.get("AHB_TLS_KEY", "")
-    hostname = os.environ.get("AHB_HOSTNAME", "")
+    hostname = os.environ.get("AHB_HOSTNAME", "") or _tailscale_hostname()
     allowed_devices = {item.strip() for item in allowed.split(",") if item.strip()}
     return Settings(
         ingest_token=token,
