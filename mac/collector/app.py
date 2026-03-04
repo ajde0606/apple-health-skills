@@ -50,8 +50,10 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
             status_code=400,
         )
     host = request.headers.get("host", "localhost:8443")
+    scheme = "https" if (settings.tls_cert and settings.tls_key) else "http"
     payload = "ahb://configure?" + urlencode({
         "host": host,
+        "scheme": scheme,
         "token": settings.ingest_token,
         "user": settings.user_id,
     })
