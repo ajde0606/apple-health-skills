@@ -47,26 +47,30 @@ Sign in to Tailscale with any account (Google, GitHub, Apple, or email).
 Download from [tailscale.com/download](https://tailscale.com/download) and sign
 in with the **same** Tailscale account you used on iOS.
 
-**MagicDNS and HTTPS are both required for iOS.**
-iOS App Transport Security (ATS) blocks all plain HTTP connections to non-localhost
-addresses — the collector must serve HTTPS. The simplest way to get a free,
-iOS-trusted certificate is `tailscale cert`, which requires MagicDNS to be
-active in your Tailscale network.
+**MagicDNS must be enabled before running `setup.sh`.**
 
-1. Enable **MagicDNS** in the [Tailscale admin console](https://login.tailscale.com/admin/dns).
-2. Find your Mac's Tailscale hostname:
+iOS App Transport Security (ATS) blocks all plain HTTP to non-localhost addresses.
+The collector must serve HTTPS using a certificate `tailscale cert` issues against
+your `.ts.net` hostname — and `tailscale cert` requires MagicDNS to be active.
+
+> **Before running `setup.sh`:**
+> 1. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns)
+> 2. Toggle **MagicDNS** on
+> 3. Confirm your Mac's hostname resolves: `curl https://<hostname>:8443/healthz`
+>    should reach the collector after it's running
+
+Find your Mac's Tailscale hostname and IP:
 
 ```bash
 tailscale status --self --json | jq -r .Self.DNSName | tr -d '.'
-# → janices-macbook-air.tailcc4114.ts.net
+# → janices-macbook-air.tailcc4114.ts.net  (empty until MagicDNS is on)
+
+tailscale ip -4
+# → 100.89.116.78  (always available)
 ```
 
-The `setup.sh` script will use this hostname to issue the certificate automatically.
-If you need the raw Tailscale IP for other purposes:
-
-```bash
-tailscale ip -4   # → 100.89.116.78
-```
+`start.sh` will warn you if MagicDNS is not resolving and print the right URLs
+to test with.
 
 ### 2.2 Clone and run setup
 
@@ -103,8 +107,15 @@ The collector listens on port **8443**. Leave this terminal running (or set up
 ### 2.4 Verify
 
 ```bash
-curl -s http://127.0.0.1:8443/healthz
+# Localhost (always works; -k skips cert hostname check for 127.0.0.1)
+curl -sk https://127.0.0.1:8443/healthz
 # → {"ok":"true","ts":...}
+
+# Via Tailscale IP (cert is hostname-bound, so -k is needed for IP access)
+curl -sk https://100.89.116.78:8443/healthz
+
+# Via MagicDNS hostname (no -k needed — cert matches)
+curl -s https://janices-macbook-air.tailcc4114.ts.net:8443/healthz
 ```
 
 ---
@@ -219,8 +230,8 @@ launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
 | `NSURLErrorDomain Code=-1022` (ATS) | Collector is serving plain HTTP — run `setup.sh` to issue a `tailscale cert` and enable HTTPS |
 | `401 Unauthorized` | Token in iOS app doesn't match `AHB_INGEST_TOKEN` in `.env` |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
-| `curl: (6) Could not resolve host` | MagicDNS not enabled — go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns) and enable it |
-| iOS can't reach collector | Confirm both devices show as connected in `tailscale status`; verify MagicDNS is on |
+| `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle MagicDNS on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
+| iOS can't reach collector | Confirm both devices show as connected in `tailscale status`; verify MagicDNS is on; verify `start.sh` shows HTTPS as enabled |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
 
