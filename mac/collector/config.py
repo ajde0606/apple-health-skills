@@ -33,6 +33,7 @@ class Settings:
     user_id: str
     tls_cert: str
     tls_key: str
+    hostname: str  # canonical Tailscale hostname, e.g. my-mac.tail….ts.net:8443
 
 
 def load_settings() -> Settings:
@@ -42,6 +43,7 @@ def load_settings() -> Settings:
     user_id = os.environ.get("AHB_USER_ID", "")
     tls_cert = os.environ.get("AHB_TLS_CERT", "")
     tls_key = os.environ.get("AHB_TLS_KEY", "")
+    hostname = os.environ.get("AHB_HOSTNAME", "")
     allowed_devices = {item.strip() for item in allowed.split(",") if item.strip()}
     return Settings(
         ingest_token=token,
@@ -50,4 +52,5 @@ def load_settings() -> Settings:
         user_id=user_id,
         tls_cert=tls_cert,
         tls_key=tls_key,
+        hostname=hostname,
     )
