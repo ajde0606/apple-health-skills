@@ -59,11 +59,17 @@ bash scripts/setup.sh
 
 `setup.sh` will:
 - Create a Python virtual environment and install dependencies
-- Ask for your **user ID** (e.g. `alice`) and **iPhone Device ID**
-  (shown on the iOS app's Setup screen)
-- Generate a strong random auth token and print it
+- Generate a strong random auth token
 - Write everything to a `.env` file (never committed to git)
 - Print next steps
+
+You can also edit `.env` by hand — the only required variables are:
+
+```
+AHB_USER_ID=alice
+AHB_INGEST_TOKEN=<random secret>
+AHB_ALLOWED_DEVICES=iphone-<your device id>
+```
 
 ### 2.3 Start the collector
 
@@ -85,19 +91,36 @@ curl -s http://127.0.0.1:8443/healthz
 
 ## Step 3 — Connect the iOS app
 
-1. Open **AppleHealthBridge** on your iPhone.
-2. Tap the **gear icon** (top right) to open Setup.
-3. Fill in:
-   - **User ID** — same value you entered during `setup.sh` (e.g. `alice`)
-   - **Collector Host** — your Mac's Tailscale hostname
-     (e.g. `your-macbook.tail12345.ts.net`)
-   - **Auth Token** — the token printed by `setup.sh`
-   - **Device ID** — copy the auto-generated value shown at the top of Setup,
-     then paste it into `setup.sh` when prompted (or add it to
-     `AHB_ALLOWED_DEVICES` in `.env` and restart the collector)
-4. Tap **Authorize HealthKit** and grant read permissions.
-5. Tap **Bootstrap Sync (Last 14 Days)** to do the initial upload.
-6. Tap **Incremental Sync** any time (or let future background delivery handle it).
+### 3.1 Scan the QR code (recommended)
+
+1. On your Mac, open `http://<your-mac-tailscale-hostname>:8443/qr` in a browser.
+   A QR code appears that encodes your host, token, and user ID.
+2. Open **AppleHealthBridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
+3. Point the camera at the QR code. All fields fill in automatically.
+
+### 3.2 Add your device ID
+
+The app auto-generates a **Device ID** (shown in Settings under *Your Device*).
+Copy it and add it to `AHB_ALLOWED_DEVICES` in your Mac's `.env`, then restart
+the collector:
+
+```bash
+# In .env:
+AHB_ALLOWED_DEVICES=iphone-a1b2c3d4
+
+# Then restart:
+bash scripts/start.sh
+```
+
+### 3.3 Sync
+
+1. Tap **Authorize HealthKit** and grant read permissions.
+2. Tap **Bootstrap Sync (Last 14 Days)** for the initial upload.
+3. Tap **Incremental Sync** any time after that.
+
+> **Manual setup (fallback):** If you can't use the QR code, tap the gear icon
+> and fill in the fields under *Manual Override*: User ID, Collector Host, and
+> Auth Token.
 
 ---
 
@@ -164,8 +187,10 @@ launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
 
 | Symptom | Fix |
 |---------|-----|
+| `/qr` shows an error page | `AHB_USER_ID` is not set in `.env` — add it and restart the collector |
+| "Unrecognised QR code" on iPhone | You scanned something other than the `/qr` endpoint; try again |
 | `401 Unauthorized` | Token in iOS app doesn't match `AHB_INGEST_TOKEN` in `.env` |
-| `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — re-run `setup.sh` or edit `.env` |
+| `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
 | iOS can't connect | Confirm both devices are on Tailscale, MagicDNS is enabled, hostname resolves |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
