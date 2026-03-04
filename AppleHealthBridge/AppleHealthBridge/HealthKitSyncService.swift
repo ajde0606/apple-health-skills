@@ -16,12 +16,12 @@ final class HealthKitSyncService {
             [HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!]
         )
 
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             healthStore.requestAuthorization(toShare: [], read: readTypes) { success, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if success {
-                    continuation.resume()
+                    continuation.resume(returning: ())
                 } else {
                     continuation.resume(throwing: URLError(.userAuthenticationRequired))
                 }
