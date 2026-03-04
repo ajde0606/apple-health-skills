@@ -190,6 +190,16 @@ The agent uses the `openclaw-skill/SKILL.md` skill definition to run:
 python scripts/query_health.py --window-hours 24 --sleep-nights 7
 ```
 
+Install this skill into your Codex local skills directory with:
+
+```bash
+bash scripts/install_skill.sh
+```
+
+This copies the skill definition and `query_health.py` into
+`$CODEX_HOME/skills/apple-health-query` (or `~/.codex/skills/apple-health-query`).
+Use `--force` to replace an existing install.
+
 You can also run it manually at any time.
 
 ---
