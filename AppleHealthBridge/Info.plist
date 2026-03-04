@@ -14,6 +14,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AppleHealthBridge uses the camera to scan a QR code for one-tap setup.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>AppleHealthBridge reads your Health data to sync heart rate, blood glucose, and sleep metrics that you authorize.</string>
 	<key>UIApplicationSceneManifest</key>

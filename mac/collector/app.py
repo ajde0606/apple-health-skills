@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import io
 import sqlite3
 import time
+from urllib.parse import urlencode
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+import qrcode
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, Response
 
 from .config import Settings, load_settings
 from .db import connect, init_db, insert_ingest_batch, upsert_samples
@@ -34,6 +38,33 @@ def startup() -> None:
         init_db(conn)
     finally:
         conn.close()
+
+
+@app.get("/qr")
+def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Response:
+    """Return a PNG QR code that the iPhone app can scan for one-tap setup."""
+    if not settings.user_id:
+        return HTMLResponse(
+            "<h2>AHB_USER_ID is not set.</h2>"
+            "<p>Add <code>AHB_USER_ID=yourname</code> to your <code>.env</code> file and restart the collector.</p>",
+            status_code=400,
+        )
+    scheme = "https" if (settings.tls_cert and settings.tls_key) else "http"
+    # Prefer the canonical Tailscale hostname stored in AHB_HOSTNAME so the QR
+    # payload always contains the hostname (not the IP), even when the browser
+    # reached this page via the Tailscale IP address.  Fall back to the Host
+    # header only when AHB_HOSTNAME is not configured.
+    host = settings.hostname or request.headers.get("host", "localhost:8443")
+    payload = "ahb://configure?" + urlencode({
+        "host": host,
+        "scheme": scheme,
+        "token": settings.ingest_token,
+        "user": settings.user_id,
+    })
+    img = qrcode.make(payload)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 
 @app.get("/healthz")
