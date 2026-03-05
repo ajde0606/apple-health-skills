@@ -42,3 +42,31 @@ class IngestResult(BaseModel):
     duplicate_batch: bool
     inserted: int
     skipped: int
+
+
+class LiveSource(BaseModel):
+    kind: Literal["ble"] = "ble"
+    vendor: Literal["wahoo"] = "wahoo"
+    device_id: str = Field(min_length=1)
+    device_name: str | None = None
+
+
+class LiveEvent(BaseModel):
+    type: Literal["hr"] = "hr"
+    ts: float
+    value: int
+    unit: Literal["bpm"] = "bpm"
+    source: LiveSource
+    session_id: str = Field(min_length=8)
+    seq: int = Field(ge=1)
+
+
+class LiveEventsPayload(BaseModel):
+    session_id: str = Field(min_length=8)
+    device_id: str = Field(min_length=1)
+    events: list[LiveEvent]
+
+
+class LiveEventsResult(BaseModel):
+    ok: bool
+    ack_seq: int
