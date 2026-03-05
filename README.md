@@ -101,6 +101,12 @@ AHB_ALLOWED_DEVICES=iphone-<your device id>
 bash scripts/start.sh
 ```
 
+To stop it when running manually:
+
+```bash
+bash scripts/stop.sh
+```
+
 The collector listens on port **8443**. Leave this terminal running (or set up
 `launchd` — see [Autostart](#autostart)).
 
@@ -200,6 +206,12 @@ bash scripts/install_launch_agent.sh
 ```
 
 This installs and loads `~/Library/LaunchAgents/com.applehealthbridge.collector.plist`.
+
+To stop and unload the service later:
+
+```bash
+bash scripts/stop.sh
+```
 
 ### 6.2 Admin CLI commands
 
