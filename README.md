@@ -1,11 +1,12 @@
 # Apple Health Bridge
 
-Stream your iPhone's Apple Health data to your Mac in real time. An AI agent
+Stream your iPhone's Apple Health data to your Mac in real time. You can also
+capture live heart-rate data from a Wahoo strap during workouts. An AI agent
 (OpenClaw) monitors it, spots patterns, and gives you proactive advice — all
 stored locally, never in the cloud.
 
 ```
-iPhone ──HealthKit──► AppleHealthBridge app
+iPhone ──HealthKit──► IOS Health Bridge app
                               │  (Tailscale VPN)
                               ▼
                      Mac collector (FastAPI)
@@ -29,12 +30,18 @@ on your own machine.
 
 ## Step 1 — iPhone setup
 
-Install two apps from the App Store:
+Install these apps from the App Store:
 
 | App | Purpose |
 |-----|---------|
-| **AppleHealthBridge** | Reads HealthKit and uploads to your Mac |
+| **IOS Health Bridge** | Reads HealthKit and uploads to your Mac |
 | **Tailscale** | Secure VPN so your iPhone can reach your Mac from anywhere |
+
+Optional for live workout heart-rate streaming:
+
+| App / Device | Purpose |
+|-----|---------|
+| **Wahoo heart-rate sensor** (or compatible BLE HR strap) | Streams live heart rate to IOS Health Bridge |
 
 Sign in to Tailscale with any account (Google, GitHub, Apple, or email).
 
@@ -81,7 +88,7 @@ bash scripts/setup.sh
 - Generate a strong random auth token
 - Run `tailscale cert` to issue an HTTPS certificate (required for iOS)
 - Write everything to a `.env` file (never committed to git)
-- Ask for your device ID (find it in the AppleHealthBridge app)
+- Ask for your device ID (find it in the IOS Health Bridge app)
 - Print next steps
 
 You can also edit `.env` by hand — the only required variables are:
@@ -130,7 +137,7 @@ curl -s https://<tailscale-hostname>:8443/healthz
    ```
    https://<tailscale-ip>:8443/qr
    ```
-2. Open **AppleHealthBridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
+2. Open **IOS Health Bridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
 3. Point the camera at the QR code. All fields, including the `https://` scheme, fill in automatically.
 
 > **HTTPS is required.** If the collector is not serving HTTPS (i.e. `AHB_TLS_CERT`/`AHB_TLS_KEY`
@@ -160,7 +167,7 @@ for startup, `/healthz`, `/qr`, and `/ingest` requests.
 
 ### 3.4 Enable background refresh
 
-On iPhone, allow background app refresh for **AppleHealthBridge** so background
+On iPhone, allow background app refresh for **IOS Health Bridge** so background
 sync delivery can run reliably.
 
 ---
@@ -189,65 +196,10 @@ You can also run that query command manually at any time.
 
 ---
 
-## Publishing this skill
+## Skill publishing and setup docs
 
-If you want to publish the `openclaw-skill` folder so others can install it, use this structure and release flow.
-
-### 1. Keep a clean skill package layout
-
-```
-openclaw-skill/
-├── SKILL.md               # required metadata + workflow instructions
-├── scripts/               # optional deterministic helpers
-├── references/            # optional deep docs loaded only when needed
-└── assets/                # optional templates or static files used in outputs
-```
-
-Only `SKILL.md` is required. Keep it concise and move long examples to `references/` so agents load details only when needed.
-
-### 2. Treat the skill as a versioned artifact
-
-- Use semantic version tags (for example `v0.1.0`, `v0.2.0`).
-- Add a short release note for each tag describing behavior changes.
-- Keep breaking changes explicit in `SKILL.md` (new required tools, changed output contract, etc.).
-
-### 3. Publish from a dedicated folder or repo
-
-Two common options:
-
-1. **Monorepo (current setup):** keep `openclaw-skill/` in this repo and tag full-repo releases.
-2. **Skill-only repo:** copy `openclaw-skill/` into its own repository for simpler discovery/versioning.
-
-If users install directly from GitHub, a skill-only repository is usually easiest to communicate.
-
-### 4. Add install instructions for users
-
-Document one command path users can follow consistently, for example:
-
-```bash
-# Example (adjust to your Codex/OpenClaw installer tooling)
-git clone https://github.com/<you>/<your-skill-repo>.git
-```
-
-Then show a minimal “verify install” step (for example, list installed skills and confirm `apple-health-query` appears).
-
-### 5. Keep runtime dependencies separate from skill logic
-
-- Skill instructions live in `openclaw-skill/SKILL.md`.
-- Operational code for this project (collector, scripts, db) stays outside the skill package.
-- Reference project scripts from the skill only when they are stable entry points (for example `scripts/query_health.py`).
-
-This separation makes the published skill portable and easier to maintain.
-
-### 6. Validate before each release
-
-Run a smoke check locally before tagging:
-
-```bash
-python scripts/query_health.py --window-hours 24 --sleep-nights 7
-```
-
-If command names or output JSON changed, update `openclaw-skill/SKILL.md` in the same commit as the code change.
+To keep this README focused on running Apple Health Bridge, skill packaging and
+publishing notes live in [`docs/skill-publishing.md`](docs/skill-publishing.md).
 
 ---
 
