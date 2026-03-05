@@ -217,6 +217,14 @@ python scripts/admin_cli.py export-json --days 7 --output exports/health_export_
 python scripts/admin_cli.py purge --days 90
 ```
 
+
+`rotate-token` behavior:
+- Generates a new random ingest token.
+- Updates `AHB_INGEST_TOKEN` in your `.env` file.
+- Prints the new token in JSON output.
+- Existing iOS app installs will keep using the old token until you update the app settings (or rescan QR).
+- Restart the collector after rotating so it definitely picks up the new token.
+
 ---
 
 ## Step 4 — Talk to the agent
