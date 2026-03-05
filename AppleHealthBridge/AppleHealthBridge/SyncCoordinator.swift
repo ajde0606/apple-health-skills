@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import BackgroundTasks
+import UIKit
 
 @MainActor
 final class SyncCoordinator: ObservableObject {
@@ -100,10 +101,12 @@ final class SyncCoordinator: ObservableObject {
         }
     }
 
-    func runIncrementalSyncInBackground() async {
+    func runIncrementalSyncInBackground(trigger: String = "manual") async {
         let config = AppConfig.shared
         do {
-            addLog("Background incremental sync triggered")
+            let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "AHBBackgroundSync")
+            defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
+            addLog("Background incremental sync triggered (\(trigger))")
             let samples = try await healthService.collectIncrementalSamples()
             guard !samples.isEmpty else {
                 try await flushQueue()
@@ -175,9 +178,14 @@ final class SyncCoordinator: ObservableObject {
     private func configureBackgroundDeliveryIfNeeded() async throws {
         guard !observersConfigured else { return }
         try await healthService.enableBackgroundDelivery()
-        healthService.startObserverQueries { [weak self] in
-            await self?.runIncrementalSyncInBackground()
-        }
+        healthService.startObserverQueries(
+            onUpdate: { [weak self] sampleTypeIdentifier in
+                await self?.runIncrementalSyncInBackground(trigger: "observer:\(sampleTypeIdentifier)")
+            },
+            onError: { [weak self] message in
+                self?.addLog(message)
+            }
+        )
         observersConfigured = true
         addLog("HealthKit observer queries configured")
     }

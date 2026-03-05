@@ -61,15 +61,24 @@ final class HealthKitSyncService {
         }
     }
 
-    func startObserverQueries(onUpdate: @escaping () async -> Void) {
+    func startObserverQueries(
+        onUpdate: @escaping (_ sampleTypeIdentifier: String) async -> Void,
+        onError: @escaping (_ message: String) -> Void
+    ) {
         stopObserverQueries()
 
         for sampleType in monitoredSampleTypes {
-            let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { _, completionHandler, _ in
-                Task {
-                    await onUpdate()
+            let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { _, completionHandler, error in
+                if let error {
+                    onError("Observer callback error for \(sampleType.identifier): \(error.localizedDescription)")
+                    completionHandler()
+                    return
                 }
-                completionHandler()
+
+                Task(priority: .background) {
+                    await onUpdate(sampleType.identifier)
+                    completionHandler()
+                }
             }
 
             observerQueries.append(query)

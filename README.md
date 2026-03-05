@@ -63,10 +63,10 @@ Find your Mac's Tailscale hostname and IP:
 
 ```bash
 tailscale status --self --json | jq -r .Self.DNSName | tr -d '.'
-# → janices-macbook-air.tailcc4114.ts.net  (empty until MagicDNS is on)
+# → your-mac-name.your-tailnet.ts.net  (empty until MagicDNS is on)
 
 tailscale ip -4
-# → 100.89.116.78  (always available)
+# → 100.x.y.z  (always available)
 ```
 
 `start.sh` will warn you if MagicDNS is not resolving and print the right URLs
@@ -112,10 +112,10 @@ curl -sk https://127.0.0.1:8443/healthz
 # → {"ok":"true","ts":...}
 
 # Via Tailscale IP (cert is hostname-bound, so -k is needed for IP access)
-curl -sk https://100.89.116.78:8443/healthz
+curl -sk https://<tailscale-ip>:8443/healthz
 
 # Via MagicDNS hostname (no -k needed — cert matches)
-curl -s https://janices-macbook-air.tailcc4114.ts.net:8443/healthz
+curl -s https://<tailscale-hostname>:8443/healthz
 ```
 
 ---
@@ -126,7 +126,7 @@ curl -s https://janices-macbook-air.tailcc4114.ts.net:8443/healthz
 
 1. On your Mac, open the `/qr` page in a browser:
    ```
-   https://janices-macbook-air.tailcc4114.ts.net:8443/qr
+   https://<tailscale-hostname>:8443/qr
    ```
    (Use your own hostname from `tailscale status --self --json | jq -r .Self.DNSName`.)
 2. Open **AppleHealthBridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
@@ -173,6 +173,79 @@ for startup, `/healthz`, `/qr`, and `/ingest` requests.
 
 ---
 
+## Step 5 — Coaching-grade feature summaries (Milestone 4)
+
+The query tool now returns both:
+
+1. Raw windows (`quantity` + `sleep` records)
+2. Derived feature summaries under `features`:
+   - **Sleep**: total sleep, time in bed, efficiency, stage minutes, and bedtime/waketime consistency
+   - **Heart**: median/average heart rate, resting-HR trend markers, HRV summary
+   - **Glucose**: mean, variability (stddev), time-in-range %, spike count, overnight baseline estimate
+
+Example:
+
+```bash
+python scripts/query_health.py --window-hours 24 --sleep-nights 7
+```
+
+---
+
+## Step 6 — Operations toolkit (Milestone 5)
+
+### 6.1 Install collector as a LaunchAgent
+
+```bash
+bash scripts/install_launch_agent.sh
+```
+
+This installs and loads `~/Library/LaunchAgents/com.applehealthbridge.collector.plist`.
+
+### 6.2 Admin CLI commands
+
+```bash
+# Rotate ingest token and update .env
+python scripts/admin_cli.py rotate-token
+
+# Show latest successful sync + sample counts
+python scripts/admin_cli.py last-sync
+
+# Export last 7 days for debugging
+python scripts/admin_cli.py export-json --days 7 --output exports/health_export_last7d.json
+
+# Purge old data (keep only last 90 days)
+python scripts/admin_cli.py purge --days 90
+```
+
+
+`rotate-token` behavior:
+- Generates a new random ingest token.
+- Updates `AHB_INGEST_TOKEN` in your `.env` file.
+- Prints the new token in JSON output.
+- Existing iOS app installs will keep using the old token until you update the app settings (or rescan QR).
+- Restart the collector after rotating so it definitely picks up the new token.
+
+`last-sync` behavior:
+- Reads `ingest_batches` and reports the most recent batch (`batch_id`, `device_id`, `user_id`, `received_at`).
+- Prints `latest_sync_iso` as a human-readable UTC timestamp.
+- Includes current total row counts for `quantity_samples` and `category_samples`.
+
+`export-json` behavior:
+- Exports a time-windowed snapshot (default: last 7 days) to a JSON file.
+- Includes three sections: `quantity_samples`, `category_samples`, and `ingest_batches`.
+- Creates the output directory automatically if it does not exist.
+- Useful for debugging ingest issues without direct SQLite inspection.
+
+`purge` behavior:
+- Applies retention by deleting rows older than `--days` from:
+  - `quantity_samples` (by `ts`)
+  - `category_samples` (by `end_ts`)
+  - `ingest_batches` (by `received_at`)
+- Prints a JSON summary of how many rows were deleted per table.
+- This is destructive; keep a backup/export first if you may need historical data.
+
+---
+
 ## Step 4 — Talk to the agent
 
 Open Claude Code (OpenClaw) in the repo directory:
@@ -209,7 +282,7 @@ You can also run it manually at any time.
 
 ---
 
-## Autostart
+## Autostart (manual alternative)
 
 To keep the collector running 24/7, create a launchd agent:
 
@@ -256,6 +329,14 @@ launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
 | iOS can't reach collector | Confirm both devices show as connected in `tailscale status`; verify MagicDNS is on; verify `start.sh` shows HTTPS as enabled |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
+
+---
+
+## Validation and test plan
+
+See [`TEST_PLAN.md`](TEST_PLAN.md) for a runnable validation checklist covering
+collector health, ingest idempotency, milestone 4 feature summaries, milestone 5
+admin tooling, and LaunchAgent behavior.
 
 ---
 
