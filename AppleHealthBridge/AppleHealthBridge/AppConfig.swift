@@ -12,6 +12,7 @@ final class AppConfig: ObservableObject {
         static let ingestToken   = "ingestToken"
         static let deviceID      = "deviceID"
         static let userID        = "userID"
+        static let bootstrapDays = "bootstrapDays"
     }
 
     // MARK: - Published settings (bound to SettingsView)
@@ -42,7 +43,9 @@ final class AppConfig: ObservableObject {
 
     // MARK: - Fixed constants
 
-    let bootstrapDays = 14
+    @Published var bootstrapDays: Int {
+        didSet { UserDefaults.standard.set(bootstrapDays, forKey: Keys.bootstrapDays) }
+    }
     let maxBatchSamples = 500
 
     // MARK: - Derived helpers
@@ -121,12 +124,15 @@ final class AppConfig: ObservableObject {
 
     // MARK: - Init
 
+    // MARK: - Init
+
     private init() {
         let defaults = UserDefaults.standard
         collectorHost = defaults.string(forKey: Keys.collectorHost) ?? ""
         collectorScheme = defaults.string(forKey: Keys.collectorScheme) ?? "https"
         ingestToken   = defaults.string(forKey: Keys.ingestToken)   ?? ""
         userID        = defaults.string(forKey: Keys.userID)        ?? ""
+        bootstrapDays = defaults.integer(forKey: Keys.bootstrapDays).nonZero ?? 14
         // Auto-generate a stable device ID on first launch
         if let saved = defaults.string(forKey: Keys.deviceID), !saved.isEmpty {
             deviceID = saved
@@ -136,4 +142,9 @@ final class AppConfig: ObservableObject {
             deviceID = generated
         }
     }
+}
+
+private extension Int {
+    /// Returns `self` if non-zero, otherwise `nil` (for UserDefaults default handling).
+    var nonZero: Int? { self == 0 ? nil : self }
 }
