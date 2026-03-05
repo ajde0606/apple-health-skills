@@ -1,8 +1,8 @@
 # Apple Health Bridge
 
 Stream your iPhone's Apple Health data to your Mac in real time. An AI agent
-(OpenClaw / Claude Code) monitors it, spots patterns, and gives you proactive
-advice — all stored locally, never in the cloud.
+(OpenClaw) monitors it, spots patterns, and gives you proactive advice — all
+stored locally, never in the cloud.
 
 ```
 iPhone ──HealthKit──► AppleHealthBridge app
@@ -44,10 +44,20 @@ Sign in to Tailscale with any account (Google, GitHub, Apple, or email).
 
 ### 2.1 Install Tailscale on Mac
 
-Download from [tailscale.com/download](https://tailscale.com/download) and sign
-in with the **same** Tailscale account you used on iOS.
+Use either option below, then sign in with the **same** Tailscale account you used on iOS.
 
-**MagicDNS must be enabled before running `setup.sh`.**
+Option A:
+- Install from [tailscale.com/download](https://tailscale.com/download)
+
+Option B:
+
+```bash
+brew install tailscale
+sudo tailscaled
+sudo tailscale up # to login
+```
+
+**MagicDNS and HTTPS Certificates must be enabled before running `setup.sh`.**
 
 iOS App Transport Security (ATS) blocks all plain HTTP to non-localhost addresses.
 The collector must serve HTTPS using a certificate `tailscale cert` issues against
@@ -56,21 +66,7 @@ your `.ts.net` hostname — and `tailscale cert` requires MagicDNS to be active.
 > **Before running `setup.sh`:**
 > 1. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns)
 > 2. Toggle **MagicDNS** on
-> 3. Confirm your Mac's hostname resolves: `curl https://<hostname>:8443/healthz`
->    should reach the collector after it's running
-
-Find your Mac's Tailscale hostname and IP:
-
-```bash
-tailscale status --self --json | jq -r .Self.DNSName | tr -d '.'
-# → your-mac-name.your-tailnet.ts.net  (empty until MagicDNS is on)
-
-tailscale ip -4
-# → 100.x.y.z  (always available)
-```
-
-`start.sh` will warn you if MagicDNS is not resolving and print the right URLs
-to test with.
+> 3. Toggle **HTTPS Certificates** on
 
 ### 2.2 Clone and run setup
 
@@ -85,6 +81,7 @@ bash scripts/setup.sh
 - Generate a strong random auth token
 - Run `tailscale cert` to issue an HTTPS certificate (required for iOS)
 - Write everything to a `.env` file (never committed to git)
+- Ask for your device ID (find it in the AppleHealthBridge app)
 - Print next steps
 
 You can also edit `.env` by hand — the only required variables are:
@@ -107,8 +104,7 @@ To stop it when running manually:
 bash scripts/stop.sh
 ```
 
-The collector listens on port **8443**. Leave this terminal running (or set up
-`launchd` — see [Autostart](#autostart)).
+The collector listens on port **8443**. Leave this terminal running.
 
 ### 2.4 Verify
 
@@ -132,9 +128,8 @@ curl -s https://<tailscale-hostname>:8443/healthz
 
 1. On your Mac, open the `/qr` page in a browser:
    ```
-   https://<tailscale-hostname>:8443/qr
+   https://<tailscale-ip>:8443/qr
    ```
-   (Use your own hostname from `tailscale status --self --json | jq -r .Self.DNSName`.)
 2. Open **AppleHealthBridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
 3. Point the camera at the QR code. All fields, including the `https://` scheme, fill in automatically.
 
@@ -142,21 +137,7 @@ curl -s https://<tailscale-hostname>:8443/healthz
 > are not set), iOS will reject all connections with an App Transport Security error.
 > Run `setup.sh` to issue the certificate automatically.
 
-### 3.2 Add your device ID
-
-The app auto-generates a **Device ID** (shown in Settings under *Your Device*).
-Copy it and add it to `AHB_ALLOWED_DEVICES` in your Mac's `.env`, then restart
-the collector:
-
-```bash
-# In .env:
-AHB_ALLOWED_DEVICES=iphone-a1b2c3d4
-
-# Then restart:
-bash scripts/start.sh
-```
-
-### 3.3 Sync
+### 3.2 Sync
 
 1. Tap **Authorize HealthKit** and grant read permissions.
 2. Tap **Bootstrap Sync (Last 14 Days)** for the initial upload.
@@ -177,29 +158,40 @@ The app home screen now includes a **Sync Logs** panel with timestamped sync eve
 When running `bash scripts/start.sh`, the collector also prints timestamped events
 for startup, `/healthz`, `/qr`, and `/ingest` requests.
 
+### 3.4 Enable background refresh
+
+On iPhone, allow background app refresh for **AppleHealthBridge** so background
+sync delivery can run reliably.
+
 ---
 
-## Step 5 — Coaching-grade feature summaries (Milestone 4)
+## Step 4 — Talk to OpenClaw
 
-The query tool now returns both:
+Open OpenClaw in the repo directory and ask questions about your health data:
 
-1. Raw windows (`quantity` + `sleep` records)
-2. Derived feature summaries under `features`:
-   - **Sleep**: total sleep, time in bed, efficiency, stage minutes, and bedtime/waketime consistency
-   - **Heart**: median/average heart rate, resting-HR trend markers, HRV summary
-   - **Glucose**: mean, variability (stddev), time-in-range %, spike count, overnight baseline estimate
+```bash
+cd apple-health-skills
+```
 
-Example:
+Example prompts:
+
+- *"What's my heart rate trend over the last 24 hours?"*
+- *"How was my sleep last night? Any patterns worth watching?"*
+- *"Alert me if my resting HR goes above 90 bpm — check every 30 minutes."*
+
+When needed, OpenClaw can run:
 
 ```bash
 python scripts/query_health.py --window-hours 24 --sleep-nights 7
 ```
 
+You can also run that query command manually at any time.
+
 ---
 
-## Step 6 — Operations toolkit (Milestone 5)
+## Operations toolkit
 
-### 6.1 Install collector as a LaunchAgent
+### 1. Install collector as a LaunchAgent
 
 ```bash
 bash scripts/install_launch_agent.sh
@@ -213,7 +205,7 @@ To stop and unload the service later:
 bash scripts/stop.sh
 ```
 
-### 6.2 Admin CLI commands
+### 2. Admin CLI commands
 
 ```bash
 # Rotate ingest token and update .env
@@ -228,7 +220,6 @@ python scripts/admin_cli.py export-json --days 7 --output exports/health_export_
 # Purge old data (keep only last 90 days)
 python scripts/admin_cli.py purge --days 90
 ```
-
 
 `rotate-token` behavior:
 - Generates a new random ingest token.
@@ -258,75 +249,6 @@ python scripts/admin_cli.py purge --days 90
 
 ---
 
-## Step 4 — Talk to the agent
-
-Open Claude Code (OpenClaw) in the repo directory:
-
-```bash
-cd apple-health-skills
-claude
-```
-
-The `.env` file is loaded automatically by the query script, so the agent
-already knows your user ID and DB path. Ask things like:
-
-- *"What's my heart rate trend over the last 24 hours?"*
-- *"How was my sleep last night? Any patterns worth watching?"*
-- *"Alert me if my resting HR goes above 90 bpm — check every 30 minutes."*
-
-The agent uses the `openclaw-skill/SKILL.md` skill definition to run:
-
-```bash
-python scripts/query_health.py --window-hours 24 --sleep-nights 7
-```
-
-Install this skill into your Codex local skills directory with:
-
-```bash
-bash scripts/install_skill.sh
-```
-
-This copies the skill definition and `query_health.py` into
-`$CODEX_HOME/skills/apple-health-query` (or `~/.codex/skills/apple-health-query`).
-Use `--force` to replace an existing install.
-
-You can also run it manually at any time.
-
----
-
-## Autostart (manual alternative)
-
-To keep the collector running 24/7, create a launchd agent:
-
-```bash
-# Create ~/Library/LaunchAgents/com.ahb.collector.plist
-# (edit paths below to match your actual repo location)
-
-cat > ~/Library/LaunchAgents/com.ahb.collector.plist <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>       <string>com.ahb.collector</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/bash</string>
-    <string>/YOUR/PATH/apple-health-skills/scripts/start.sh</string>
-  </array>
-  <key>RunAtLoad</key>   <true/>
-  <key>KeepAlive</key>   <true/>
-  <key>StandardOutPath</key> <string>/tmp/ahb-collector.log</string>
-  <key>StandardErrorPath</key><string>/tmp/ahb-collector.log</string>
-</dict>
-</plist>
-EOF
-
-launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
-```
-
----
-
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -337,20 +259,10 @@ launchctl load ~/Library/LaunchAgents/com.ahb.collector.plist
 | `account does not support getting TLS certs` | HTTPS Certificates are disabled on your Tailscale account. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), scroll to **HTTPS Certificates**, click **Enable**, then re-run `bash scripts/setup.sh` |
 | `401 Unauthorized` | Token in iOS app doesn't match `AHB_INGEST_TOKEN` in `.env` |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
-| `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle MagicDNS on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
+| `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle **MagicDNS** and **HTTPS Certificates** on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
 | iOS can't reach collector | Confirm both devices show as connected in `tailscale status`; verify MagicDNS is on; verify `start.sh` shows HTTPS as enabled |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
-
----
-
-## Validation and test plan
-
-See [`TEST_PLAN.md`](TEST_PLAN.md) for a runnable validation checklist covering
-collector health, ingest idempotency, milestone 4 feature summaries, milestone 5
-admin tooling, and LaunchAgent behavior.
-
----
 
 ## Environment variables (`.env`)
 
@@ -362,18 +274,3 @@ admin tooling, and LaunchAgent behavior.
 | `AHB_DB_PATH` | Path to SQLite database (default `db/health.db`) |
 | `AHB_TLS_CERT` | Path to TLS certificate file (issued by `tailscale cert`) |
 | `AHB_TLS_KEY` | Path to TLS private key file (issued by `tailscale cert`) |
-
----
-
-## Run tests
-
-```bash
-source .venv/bin/activate
-pytest -q
-```
-
----
-
-## Architecture
-
-See [architecture.md](architecture.md) for design decisions and data flow details.
