@@ -7,10 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-def _load_dotenv(path: Path) -> None:
-    """Parse a simple KEY=VALUE .env file and set missing env vars."""
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DOTENV_PATH = REPO_ROOT / ".env"
+
+
+def _read_dotenv(path: Path) -> dict[str, str]:
+    """Parse a simple KEY=VALUE .env file into a dict."""
+    data: dict[str, str] = {}
     if not path.exists():
-        return
+        return data
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -18,13 +23,9 @@ def _load_dotenv(path: Path) -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip()
-        # Don't override values already set in the environment
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-# Load .env from repo root (two levels up from this file) if present
-_load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+        if key:
+            data[key] = value
+    return data
 
 
 @dataclass(frozen=True)
@@ -42,10 +43,13 @@ _tailscale_hostname_cache: str | None = None
 
 
 def _tailscale_hostname() -> str:
-    """Return '<hostname>:8443' from `tailscale status`, or '' on any failure.
-    Result is cached for the lifetime of the process."""
+    """Return '<hostname>:8443' from `tailscale status`, or '' on failure.
+
+    Successful lookups are cached for the lifetime of the process.
+    Failures are *not* cached so a later request can retry.
+    """
     global _tailscale_hostname_cache
-    if _tailscale_hostname_cache is not None:
+    if _tailscale_hostname_cache:
         return _tailscale_hostname_cache
     try:
         out = subprocess.check_output(
@@ -56,18 +60,23 @@ def _tailscale_hostname() -> str:
         name = json.loads(out)["Self"]["DNSName"].rstrip(".")
         _tailscale_hostname_cache = f"{name}:8443" if name else ""
     except Exception:
-        _tailscale_hostname_cache = ""
+        return ""
     return _tailscale_hostname_cache
 
 
 def load_settings() -> Settings:
-    token = os.environ.get("AHB_INGEST_TOKEN", "dev-token")
-    allowed = os.environ.get("AHB_ALLOWED_DEVICES", "")
-    db_path = os.environ.get("AHB_DB_PATH", "db/health.db")
-    user_id = os.environ.get("AHB_USER_ID", "")
-    tls_cert = os.environ.get("AHB_TLS_CERT", "")
-    tls_key = os.environ.get("AHB_TLS_KEY", "")
-    hostname = os.environ.get("AHB_HOSTNAME", "") or _tailscale_hostname()
+    dotenv = _read_dotenv(DOTENV_PATH)
+
+    def get(name: str, default: str = "") -> str:
+        return os.environ.get(name, dotenv.get(name, default))
+
+    token = get("AHB_INGEST_TOKEN", "dev-token")
+    allowed = get("AHB_ALLOWED_DEVICES", "")
+    db_path = get("AHB_DB_PATH", "db/health.db")
+    user_id = get("AHB_USER_ID", "")
+    tls_cert = get("AHB_TLS_CERT", "")
+    tls_key = get("AHB_TLS_KEY", "")
+    hostname = get("AHB_HOSTNAME", "") or _tailscale_hostname()
     allowed_devices = {item.strip() for item in allowed.split(",") if item.strip()}
     return Settings(
         ingest_token=token,
