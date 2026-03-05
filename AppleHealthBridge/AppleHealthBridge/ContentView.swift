@@ -6,89 +6,84 @@ struct ContentView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 12) {
+            List {
                 if !config.isConfigured {
                     setupBanner
                 }
 
-                Text(coordinator.status)
-                    .font(.subheadline)
-
-                Text(coordinator.lastResult)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                Button("Authorize HealthKit") {
-                    Task { await coordinator.authorize() }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!config.isConfigured)
-
-                Button("Bootstrap Sync (Last 14 Days)") {
-                    Task { await coordinator.bootstrapSync() }
-                }
-                .buttonStyle(.bordered)
-                .disabled(!config.isConfigured)
-
-                Button("Incremental Sync") {
-                    Task { await coordinator.incrementalSync() }
-                }
-                .buttonStyle(.bordered)
-                .disabled(!config.isConfigured)
-
-                NavigationLink(destination: LiveView()) {
-                    Label("Live HR (Wahoo BLE)", systemImage: "heart.fill")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!config.isConfigured)
-
-                GroupBox("Sync Logs") {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            if coordinator.logs.isEmpty {
-                                Text("No logs yet")
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                ForEach(Array(coordinator.logs.enumerated()), id: \.offset) { _, line in
-                                    Text(line)
-                                        .font(.caption2)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                        }
+                Section {
+                    NavigationLink(destination: AppleHealthView()) {
+                        MenuRow(
+                            title: "Apple Health",
+                            subtitle: config.isConfigured ? coordinator.status : "Not configured",
+                            icon: "heart.fill",
+                            color: .red
+                        )
                     }
-                    .frame(maxHeight: 180)
-                }
 
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("AppleHealthBridge")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: LiveView()) {
+                        MenuRow(
+                            title: "Wahoo",
+                            subtitle: "Live Heart Rate",
+                            icon: "sensor.tag.radiowaves.forward.fill",
+                            color: .blue
+                        )
+                    }
+
                     NavigationLink(destination: SettingsView()) {
-                        Image(systemName: "gear")
+                        MenuRow(
+                            title: "Settings",
+                            subtitle: config.isConfigured ? "Configured" : "Setup required",
+                            icon: "gear",
+                            color: .gray
+                        )
                     }
                 }
             }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Health Bridge")
         }
     }
 
     private var setupBanner: some View {
-        NavigationLink(destination: SettingsView()) {
-            HStack {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text("Tap to complete setup")
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+        Section {
+            NavigationLink(destination: SettingsView()) {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Setup required — open Settings to configure")
+                        .font(.subheadline)
+                }
+                .padding(.vertical, 4)
             }
-            .padding()
-            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         }
+    }
+}
+
+// MARK: - Menu Row
+
+struct MenuRow: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(color, in: RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
