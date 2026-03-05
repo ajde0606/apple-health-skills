@@ -225,6 +225,25 @@ python scripts/admin_cli.py purge --days 90
 - Existing iOS app installs will keep using the old token until you update the app settings (or rescan QR).
 - Restart the collector after rotating so it definitely picks up the new token.
 
+`last-sync` behavior:
+- Reads `ingest_batches` and reports the most recent batch (`batch_id`, `device_id`, `user_id`, `received_at`).
+- Prints `latest_sync_iso` as a human-readable UTC timestamp.
+- Includes current total row counts for `quantity_samples` and `category_samples`.
+
+`export-json` behavior:
+- Exports a time-windowed snapshot (default: last 7 days) to a JSON file.
+- Includes three sections: `quantity_samples`, `category_samples`, and `ingest_batches`.
+- Creates the output directory automatically if it does not exist.
+- Useful for debugging ingest issues without direct SQLite inspection.
+
+`purge` behavior:
+- Applies retention by deleting rows older than `--days` from:
+  - `quantity_samples` (by `ts`)
+  - `category_samples` (by `end_ts`)
+  - `ingest_batches` (by `received_at`)
+- Prints a JSON summary of how many rows were deleted per table.
+- This is destructive; keep a backup/export first if you may need historical data.
+
 ---
 
 ## Step 4 — Talk to the agent
