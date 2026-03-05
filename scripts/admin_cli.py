@@ -10,6 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
 def _load_env_file(path: Path) -> dict[str, str]:
     data: dict[str, str] = {}
     if not path.exists():
@@ -133,8 +136,8 @@ def cmd_purge(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Apple Health Bridge admin CLI")
-    parser.add_argument("--env-file", default=".env", help="Path to .env (default: .env)")
-    parser.add_argument("--db", default="db/health.db", help="Path to SQLite db (default: db/health.db)")
+    parser.add_argument("--env-file", default=str(REPO_ROOT / ".env"), help="Path to .env")
+    parser.add_argument("--db", default=str(REPO_ROOT / "db/health.db"), help="Path to SQLite db")
     sub = parser.add_subparsers(dest="command", required=True)
 
     rotate = sub.add_parser("rotate-token", help="Generate and store a new ingest token in .env")
