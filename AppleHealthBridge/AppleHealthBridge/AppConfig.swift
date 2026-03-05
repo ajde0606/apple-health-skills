@@ -8,6 +8,7 @@ final class AppConfig: ObservableObject {
 
     private enum Keys {
         static let collectorHost = "collectorHost"
+        static let collectorScheme = "collectorScheme"
         static let ingestToken   = "ingestToken"
         static let deviceID      = "deviceID"
         static let userID        = "userID"
@@ -21,6 +22,12 @@ final class AppConfig: ObservableObject {
 
     @Published var ingestToken: String {
         didSet { UserDefaults.standard.set(ingestToken, forKey: Keys.ingestToken) }
+    }
+
+    /// Collector URL scheme from QR setup (`https` or `http`).
+    /// Defaults to `https` for safety.
+    @Published var collectorScheme: String {
+        didSet { UserDefaults.standard.set(collectorScheme, forKey: Keys.collectorScheme) }
     }
 
     /// Stable device nickname, e.g. "alice-iphone". Auto-generated on first launch.
@@ -68,15 +75,24 @@ final class AppConfig: ObservableObject {
     /// Accepts bare hostnames ("my-mac.tailXXX.ts.net"),
     /// host:port ("my-mac.tailXXX.ts.net:8443"), or full URLs.
     var ingestURL: URL {
+        collectorBaseURL(path: "/ingest")
+    }
+
+    /// Builds the full live-events URL from the collector host field.
+    var liveEventsURL: URL {
+        collectorBaseURL(path: "/api/live/events")
+    }
+
+    private func collectorBaseURL(path: String) -> URL {
         var raw = collectorHost.trimmingCharacters(in: .whitespaces)
         if !raw.hasPrefix("http://") && !raw.hasPrefix("https://") {
-            raw = "https://\(raw)"
+            raw = "\(collectorScheme)://\(raw)"
         }
         if !raw.contains(":8443") && !raw.hasSuffix("/") {
             // Default port if user omits it
             raw += ":8443"
         }
-        return URL(string: raw + "/ingest")!
+        return URL(string: raw + path)!
     }
 
     // MARK: - QR setup
@@ -95,6 +111,9 @@ final class AppConfig: ObservableObject {
         guard let host = p["host"], let token = p["token"],
               !host.isEmpty, !token.isEmpty else { return false }
         collectorHost = host
+        if let scheme = p["scheme"], ["http", "https"].contains(scheme) {
+            collectorScheme = scheme
+        }
         ingestToken   = token
         if let user = p["user"], !user.isEmpty { userID = user }
         return true
@@ -105,6 +124,7 @@ final class AppConfig: ObservableObject {
     private init() {
         let defaults = UserDefaults.standard
         collectorHost = defaults.string(forKey: Keys.collectorHost) ?? ""
+        collectorScheme = defaults.string(forKey: Keys.collectorScheme) ?? "https"
         ingestToken   = defaults.string(forKey: Keys.ingestToken)   ?? ""
         userID        = defaults.string(forKey: Keys.userID)        ?? ""
         // Auto-generate a stable device ID on first launch

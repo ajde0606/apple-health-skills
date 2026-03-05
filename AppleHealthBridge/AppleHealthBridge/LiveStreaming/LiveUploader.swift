@@ -13,14 +13,7 @@ actor LiveUploader {
         guard !events.isEmpty else { return 0 }
 
         let config = AppConfig.shared
-        var raw = config.collectorHost.trimmingCharacters(in: .whitespaces)
-        if !raw.hasPrefix("http://") && !raw.hasPrefix("https://") {
-            raw = "https://\(raw)"
-        }
-        if !raw.contains(":8443") && !raw.hasSuffix("/") {
-            raw += ":8443"
-        }
-        guard let url = URL(string: raw + "/api/live/events") else { return 0 }
+        let url = config.liveEventsURL
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
