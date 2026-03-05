@@ -20,6 +20,8 @@ cat > "$PLIST_PATH" <<EOF
     <string>/bin/bash</string>
     <string>${REPO_ROOT}/scripts/start.sh</string>
   </array>
+  <key>WorkingDirectory</key>
+  <string>${REPO_ROOT}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -37,4 +39,3 @@ launchctl load "$PLIST_PATH"
 
 echo "Installed and loaded LaunchAgent: $PLIST_PATH"
 echo "Logs: $LOG_PATH"
-
