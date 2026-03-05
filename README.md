@@ -1,9 +1,20 @@
-# Apple Health Bridge
+# Apple Health Skill
 
-Stream your iPhone's Apple Health data to your Mac in real time. You can also
-capture live heart-rate data from a Wahoo strap during workouts. An AI agent
-(OpenClaw) monitors it, spots patterns, and gives you proactive advice — all
-stored locally, never in the cloud.
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-blue)
+![Version](https://img.shields.io/badge/version-v1.0.0-orange)
+
+Stream your iPhone’s Apple Health data to your Mac in real time. 
+Your Mac does not need to be on the same Wi-Fi network. Using Tailscale, your 
+iPhone can stream Apple Health data securely to your Mac from anywhere in the 
+world, as long as the phone has an internet connection.
+
+Apple Health Bridge syncs health metrics from **Apple Health / HealthKit** to a
+local Mac server, where an AI agent (OpenClaw) can analyze trends, detect
+patterns, and provide proactive health insights — **all locally, with no cloud
+services or external servers.**
+
+You can also capture **live heart-rate data from a Wahoo strap during workouts**.
 
 ```
 iPhone ──HealthKit──► IOS Health Bridge app
@@ -22,9 +33,16 @@ iPhone ──HealthKit──► IOS Health Bridge app
 
 ## Who is this for?
 
-Anyone on a Mac who wants private, AI-assisted health monitoring. There are no
-shared servers, no accounts to create, and no cloud services — everything runs
-on your own machine.
+Anyone who wants **private, AI-assisted health monitoring** on their own
+machine.
+
+There are:
+
+- no shared servers  
+- no accounts to create  
+- no cloud services  
+
+Everything runs **locally on your Mac**.
 
 ---
 
