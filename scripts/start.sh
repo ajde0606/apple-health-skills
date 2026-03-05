@@ -38,8 +38,19 @@ if ! command -v tailscale &>/dev/null; then
 else
     _TS_STATUS_ERR=$(tailscale status 2>&1 >/dev/null || true)
     if echo "$_TS_STATUS_ERR" | grep -qi "not running\|failed to connect\|is tailscale running"; then
-        TS_WARN="Tailscale is installed but not running. Start it: `open -a Tailscale` (macOS) or `sudo tailscaled` (Linux)"
-    else
+        # Best-effort auto-start for Linux/CLI environments where no GUI app exists.
+        if command -v tailscaled &>/dev/null; then
+            echo "Tailscale daemon is not running. Attempting: sudo tailscaled"
+            if sudo tailscaled >/tmp/applehealthbridge-tailscaled.log 2>&1 & then
+                sleep 1
+                _TS_STATUS_ERR=$(tailscale status 2>&1 >/dev/null || true)
+            fi
+        fi
+        if echo "$_TS_STATUS_ERR" | grep -qi "not running\|failed to connect\|is tailscale running"; then
+            TS_WARN="Tailscale is installed but not running. Start it with `sudo tailscaled` (or start the Tailscale GUI app, if installed)."
+        fi
+    fi
+    if [ -z "$TS_WARN" ]; then
         TS_IP=$(tailscale ip -4 2>/dev/null || echo "")
         TS_HOSTNAME=$(tailscale status --self --json 2>/dev/null \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Self']['DNSName'].rstrip('.'))" \
@@ -49,8 +60,12 @@ fi
 
 SCHEME="http"
 TLS_OK=false
-if [ -n "${AHB_TLS_CERT:-}" ] && [ -n "${AHB_TLS_KEY:-}" ] \
-        && [ -f "${AHB_TLS_CERT}" ] && [ -f "${AHB_TLS_KEY}" ]; then
+TLS_PROBLEM=""
+if [ -z "${AHB_TLS_CERT:-}" ] || [ -z "${AHB_TLS_KEY:-}" ]; then
+    TLS_PROBLEM="AHB_TLS_CERT/AHB_TLS_KEY are missing in .env"
+elif [ ! -f "${AHB_TLS_CERT}" ] || [ ! -f "${AHB_TLS_KEY}" ]; then
+    TLS_PROBLEM="AHB_TLS_CERT or AHB_TLS_KEY path does not exist"
+else
     SCHEME="https"
     TLS_OK=true
 fi
@@ -65,8 +80,9 @@ if $TLS_OK; then
     echo "  HTTPS:   enabled (iOS connections will work)"
 else
     echo "  HTTPS:   DISABLED — iOS will reject all connections (ATS error -1022)"
-    echo "           Fix: enable MagicDNS at https://login.tailscale.com/admin/dns"
-    echo "                then re-run: bash scripts/setup.sh"
+    echo "  Reason:  $TLS_PROBLEM"
+    echo "  Fix:     enable HTTPS by setting valid AHB_TLS_CERT and AHB_TLS_KEY in .env"
+    echo "           (Optional helper: enable MagicDNS + HTTPS certs in Tailscale admin, then run: bash scripts/setup.sh)"
     echo ""
 fi
 
