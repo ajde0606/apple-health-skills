@@ -174,17 +174,13 @@ sync delivery can run reliably.
 
 ## Step 4 — Talk to OpenClaw
 
-Open OpenClaw in the repo directory and ask questions about your health data:
-
-```bash
-cd apple-health-skills
-```
+Open OpenClaw, and ask your agent to use the skills apple-health-skills. Then you can ask questions about your health data
 
 Example prompts:
 
 - *"What's my heart rate trend over the last 24 hours?"*
 - *"How was my sleep last night? Any patterns worth watching?"*
-- *"Alert me if my resting HR goes above 90 bpm — check every 30 minutes."*
+- *"Alert me if my heart rate goes above 130 bpm — check every 10 secs."*
 
 When needed, OpenClaw can run:
 
@@ -193,13 +189,6 @@ python scripts/query_health.py --window-hours 24 --sleep-nights 7
 ```
 
 You can also run that query command manually at any time.
-
----
-
-## Skill publishing and setup docs
-
-To keep this README focused on running Apple Health Bridge, skill packaging and
-publishing notes live in [`docs/skill-publishing.md`](docs/skill-publishing.md).
 
 ---
 
