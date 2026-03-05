@@ -1,0 +1,18 @@
+--- a/Info.plist
++++ b/Info.plist
+@@ -34,6 +34,9 @@
+ 	<key>NSHealthShareUsageDescription</key>
+ 	<string>AppleHealthBridge reads your Health data to sync heart rate, blood glucose, and sleep metrics that you authorize.</string>
++	<key>NSHealthUpdateUsageDescription</key>
++	<string>AppleHealthBridge writes workout and health metrics back to Apple Health so your data stays in sync.</string>
+ 	<key>UIApplicationSceneManifest</key>
+ 	<dict>
+ 		<key>UIApplicationSupportsMultipleScenes</key>
+@@ -44,7 +47,6 @@
+ 	<key>UIBackgroundModes</key>
+ 	<array>
+ 		<string>fetch</string>
+-		<string>healthkit</string>
+ 		<string>processing</string>
+ 		<string>bluetooth-central</string>
+ 	</array>
