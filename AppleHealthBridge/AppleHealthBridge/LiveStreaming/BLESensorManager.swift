@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+import Combine
 
 struct BLEDiscoveredDevice: Identifiable, Hashable {
     let id: UUID
