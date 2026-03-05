@@ -16,11 +16,18 @@ final class LiveSessionController: ObservableObject {
     private var buffer: [LiveHREvent] = []
     private var flushTask: Task<Void, Never>?
     private var backoffNs: UInt64 = 500_000_000
+    private var bleCancellable: AnyCancellable?
 
     init() {
         ble.onBPM = { [weak self] bpm in
             self?.handle(bpm: bpm)
         }
+        // Forward BLE published-property changes so SwiftUI views that observe
+        // this controller re-render whenever ble.discoveredDevices,
+        // connectedName, or latestBPM change.
+        bleCancellable = ble.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
     }
 
     func startSession() {
