@@ -31,6 +31,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>AppleHealthBridge uses Bluetooth to connect to your heart rate strap for live streaming.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AppleHealthBridge uses the camera to scan a QR code for one-tap setup.</string>
 	<key>NSHealthShareUsageDescription</key>
@@ -47,6 +49,7 @@
 		<string>fetch</string>
 		<string>healthkit</string>
 		<string>processing</string>
+		<string>bluetooth-central</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

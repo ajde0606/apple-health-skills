@@ -36,6 +36,12 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
                 .disabled(!config.isConfigured)
 
+                NavigationLink(destination: LiveView()) {
+                    Label("Live HR (Wahoo BLE)", systemImage: "heart.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!config.isConfigured)
+
                 GroupBox("Sync Logs") {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 6) {

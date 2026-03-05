@@ -11,8 +11,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, Response
 
 from .config import Settings, load_settings
-from .db import connect, init_db, insert_ingest_batch, upsert_samples
-from .models import IngestPayload, IngestResult
+from .db import connect, init_db, insert_ingest_batch, upsert_live_events, upsert_samples
+from .models import IngestPayload, IngestResult, LiveEventsPayload, LiveEventsResult
 
 
 def get_settings() -> Settings:
@@ -45,6 +45,16 @@ def startup() -> None:
         log_event(f"collector startup complete db={settings.db_path}")
     finally:
         conn.close()
+
+
+def bearer_auth(
+    authorization: str = Header(default=""),
+    settings: Settings = Depends(get_settings),
+) -> Settings:
+    expected = f"Bearer {settings.ingest_token}"
+    if authorization != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+    return settings
 
 
 @app.get("/qr")
@@ -103,6 +113,32 @@ def ingest(
         return IngestResult(ok=True, duplicate_batch=False, inserted=inserted, skipped=skipped)
     except sqlite3.Error as exc:
         log_event(f"ingest sqlite error batch={payload.batch_id} error={exc}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.post("/api/live/events", response_model=LiveEventsResult)
+def ingest_live_events(
+    payload: LiveEventsPayload,
+    settings: Settings = Depends(bearer_auth),
+) -> LiveEventsResult:
+    if payload.device_id not in settings.allowed_devices:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="device not allowed")
+    if payload.events and any(event.session_id != payload.session_id for event in payload.events):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="session_id mismatch")
+
+    conn = connect(settings.db_path)
+    try:
+        event_dicts = [event.model_dump() for event in payload.events]
+        ack_seq = upsert_live_events(conn, payload.session_id, event_dicts)
+        log_event(
+            f"live events stored session={payload.session_id} device={payload.device_id} "
+            f"count={len(payload.events)} ack_seq={ack_seq}"
+        )
+        return LiveEventsResult(ok=True, ack_seq=ack_seq)
+    except sqlite3.Error as exc:
+        log_event(f"live events sqlite error session={payload.session_id} error={exc}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     finally:
         conn.close()

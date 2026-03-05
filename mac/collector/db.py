@@ -88,3 +88,35 @@ def upsert_samples(conn: sqlite3.Connection, payload: IngestPayload) -> tuple[in
 
     conn.commit()
     return inserted, skipped
+
+
+def upsert_live_events(conn: sqlite3.Connection, session_id: str, events: list[dict]) -> int:
+    """Insert live events with dedupe and return highest acknowledged sequence."""
+    ack_seq = 0
+    now = int(time.time())
+    for event in events:
+        seq = int(event["seq"])
+        source = event["source"]
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO live_events(
+                session_id, seq, ts, value, unit, source_kind, source_vendor,
+                device_id, source_device_name, received_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                session_id,
+                seq,
+                float(event["ts"]),
+                int(event["value"]),
+                str(event["unit"]),
+                str(source["kind"]),
+                str(source["vendor"]),
+                str(source["device_id"]),
+                source.get("device_name"),
+                now,
+            ),
+        )
+        ack_seq = max(ack_seq, seq)
+    conn.commit()
+    return ack_seq
