@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apple Health Bridge | Private Apple Health Sync from iPhone to Mac</title>
+    <meta
+      name="description"
+      content="Apple Health Bridge securely syncs Apple Health data from your iPhone to your Mac and supports live Wahoo heart-rate streaming, with local-only AI insights and no cloud account required."
+    />
+    <meta
+      name="keywords"
+      content="Apple Health Bridge, HealthKit sync, iPhone to Mac health sync, private health data, local AI health insights, Tailscale health app"
+    />
+    <link rel="canonical" href="https://example.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Apple Health Bridge" />
+    <meta
+      property="og:description"
+      content="Private Apple Health syncing from iPhone to Mac with local AI insights."
+    />
+    <meta property="og:url" content="https://example.com/" />
+    <meta property="og:site_name" content="Apple Health Bridge" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Apple Health Bridge" />
+    <meta
+      name="twitter:description"
+      content="Keep your health data private while syncing iPhone Apple Health metrics to your Mac."
+    />
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f9fc;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #4b5563;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --border: #e5e7eb;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1220;
+          --panel: #121a2a;
+          --text: #e5e7eb;
+          --muted: #9ca3af;
+          --accent: #60a5fa;
+          --accent-soft: #1e3a8a33;
+          --border: #243244;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1rem 4rem;
+      }
+
+      .hero {
+        background: linear-gradient(120deg, var(--accent-soft), transparent);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 2rem;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.25;
+        margin-top: 0;
+      }
+
+      h1 {
+        font-size: clamp(1.8rem, 3vw, 2.6rem);
+      }
+
+      .subtitle {
+        color: var(--muted);
+        max-width: 70ch;
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+      }
+
+      .button {
+        display: inline-block;
+        padding: 0.65rem 1rem;
+        border-radius: 10px;
+        text-decoration: none;
+        border: 1px solid var(--accent);
+      }
+
+      .button.primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .button.secondary {
+        color: var(--accent);
+        background: transparent;
+      }
+
+      section {
+        margin-top: 2rem;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.25rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      @media (min-width: 760px) {
+        .grid.two {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      ul {
+        padding-left: 1.2rem;
+      }
+
+      footer {
+        margin-top: 3rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .small {
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+    </style>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Apple Health Bridge",
+        "applicationCategory": "HealthApplication",
+        "operatingSystem": "iOS",
+        "description": "Apple Health Bridge syncs Apple Health data from iPhone to a Mac collector over Tailscale and supports live Wahoo heart-rate streaming, with local-only storage and AI analysis.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Apple Health Bridge"
+        }
+      }
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Does Apple Health Bridge upload my health data to the cloud?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Apple Health Bridge is designed for local-first use. Data is sent from iPhone to your own Mac collector and stored locally."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What do I need to use the app?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "You need an iPhone with Apple Health data, a Mac running the collector service, and Tailscale configured on both devices."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I request support?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Contact support at hornliquant@gmail.com. Include your app version, iOS version, and a short issue summary for faster help."
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <main class="container">
+      <header class="hero">
+        <h1>Apple Health Bridge</h1>
+        <p class="subtitle">
+          A private, secure bridge that syncs your Apple Health data from iPhone to Mac and adds
+          live Wahoo heart-rate capture for local analytics and proactive insights. No shared cloud
+          backend, no extra accounts.
+        </p>
+        <div class="cta-row">
+          <a class="button primary" href="#marketing">Learn More</a>
+          <a class="button secondary" href="#support">Get Support</a>
+          <a class="button secondary" href="#privacy">Privacy Policy</a>
+        </div>
+      </header>
+
+      <section id="marketing" class="grid two" aria-labelledby="marketing-heading">
+        <article class="card">
+          <h2 id="marketing-heading">Highlights</h2>
+          <p>
+            Apple Health Bridge helps you keep control of your health data while making it more
+            useful. It connects HealthKit data on your iPhone to your personal Mac collector over a
+            secure Tailscale network, then enables local AI analysis for trends, alerts, and
+            insights.
+          </p>
+          <h3>Key Benefits</h3>
+          <ul>
+            <li><strong>Private by design:</strong> Data stays on your own devices.</li>
+            <li><strong>Secure transport:</strong> Encrypted connection over Tailscale + HTTPS.</li>
+            <li><strong>Fast setup:</strong> Connect with QR code and bootstrap recent history.</li>
+            <li><strong>Background updates:</strong> Supports HealthKit observer delivery.</li>
+            <li><strong>Live HR streaming:</strong> Ingest real-time Wahoo heart-rate data on Mac.</li>
+            <li><strong>Actionable insights:</strong> Pair with your local AI workflow for alerts.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Product Overveiw</h2>
+          <p>
+            Apple Health Bridge turns your iPhone and Mac into a private health intelligence system.
+            Sync heart rate, blood glucose, sleep, and more from Apple Health to your own Mac — then
+            analyze patterns locally without relying on third-party cloud services.
+          </p>
+          <p>
+            You can also capture live heart-rate streams from compatible Wahoo sensors on Mac to
+            complement Apple Health history with real-time workout monitoring.
+          </p>
+          <h3>Major Health Data Source</h3>
+          <ul>
+            <li><strong>Apple Health:</strong> iWatch/Airpods and all imported data</li>
+            <li><strong>Wahoo</strong></li>
+            <li><strong>More coming</strong></li>
+          </ul>
+          <p>
+            Built for users who value privacy, control, and practical health insights powered by
+            their own infrastructure.
+          </p>
+        </article>
+      </section>
+
+      <section id="support" class="card" aria-labelledby="support-heading">
+        <h2 id="support-heading">Support</h2>
+        <p>
+          For troubleshooting, feature requests, or account-free setup help, contact:
+          <a href="mailto:hornliquant@gmail.com">hornliquant@gmail.com</a>
+        </p>
+        <p>
+          GitHub: <a href="https://github.com/ajde0606/apple-health-skills">https://github.com/ajde0606/apple-health-skills</a>
+        </p>
+        <ul>
+          <li>Support Hours: Monday–Friday, 9:00–17:00 (local time)</li>
+          <li>Average Response Time: 1–2 business days</li>
+          <li>
+            Please include your app version, iOS version, and whether you are using QR setup or
+            manual settings.
+          </li>
+        </ul>
+      </section>
+
+      <section id="privacy" class="card" aria-labelledby="privacy-heading">
+        <h2 id="privacy-heading">Privacy Policy</h2>
+        <p><strong>Effective date:</strong> January 1, 2026</p>
+        <p>
+          Apple Health Bridge is built with a local-first privacy model. We do not sell personal
+          data and we do not operate a centralized cloud database for your health records.
+        </p>
+
+        <h3>1. Data We Access</h3>
+        <p>
+          With your explicit permission, the app reads selected Apple HealthKit data types (for
+          example heart rate, blood glucose, and sleep metrics) to sync them to your Mac collector.
+        </p>
+
+        <h3>2. How Data Is Used</h3>
+        <ul>
+          <li>To sync your health records from iPhone to your personal Mac collector.</li>
+          <li>To support local analysis, trend review, and optional alert workflows.</li>
+          <li>To provide app functionality you initiate (manual or background sync).</li>
+        </ul>
+
+        <h3>3. Data Sharing</h3>
+        <p>
+          We do not sell your personal data. We do not share health records with third-party
+          advertisers. Data may be transmitted through your configured network tunnel (such as
+          Tailscale) between your own devices.
+        </p>
+
+        <h3>4. Data Retention and Control</h3>
+        <p>
+          Data retention is controlled by your Mac collector configuration. You can delete
+          historical data locally at any time and revoke Health permissions in iOS Settings.
+        </p>
+
+        <h3>5. Security</h3>
+        <p>
+          The app is designed to use encrypted connections and token-based authentication for
+          ingestion endpoints. You are responsible for keeping your network and devices secure.
+        </p>
+
+        <h3>6. Children&apos;s Privacy</h3>
+        <p>
+          Apple Health Bridge is not directed to children under 13. If you believe personal data
+          from a child was provided in error, contact us to request deletion guidance.
+        </p>
+
+        <h3>7. Contact</h3>
+        <p>
+          Privacy questions can be sent to
+          <a href="mailto:hornliquant@gmail.com">hornliquant@gmail.com</a>.
+        </p>
+      </section>
+
+      <section class="card" aria-labelledby="faq-heading">
+        <h2 id="faq-heading">FAQ</h2>
+        <h3>Does this app replace medical advice?</h3>
+        <p>
+          No. Apple Health Bridge is an informational tool and is not a medical device or a
+          substitute for professional medical advice.
+        </p>
+
+        <h3>Can I use this without creating an account?</h3>
+        <p>
+          Yes. The design supports account-free operation with local storage and your own network
+          setup.
+        </p>
+      </section>
+
+      <footer>
+        <p>© 2026 Apple Health Bridge. All rights reserved.</p>
+      </footer>
+    </main>
+  </body>
+</html>
