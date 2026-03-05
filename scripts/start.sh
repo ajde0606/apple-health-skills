@@ -7,6 +7,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env"
 VENV="$REPO_ROOT/.venv"
 
+# Ensure local package imports (e.g. `mac.collector.main`) resolve even when
+# this script is launched by launchd from a different working directory.
+cd "$REPO_ROOT"
+
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: .env not found. Run 'bash scripts/setup.sh' first."
     exit 1
