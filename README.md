@@ -104,6 +104,11 @@ cd apple-health-skills
 bash scripts/setup.sh
 ```
 
+> ⚠️ `setup.sh` is a **bash script**, not a Python script. If you run
+> `python scripts/setup.sh`, Python will fail with `SyntaxError`.
+> If you prefer Python-style invocation, use the compatibility launcher:
+> `python scripts/setup.py`.
+
 `setup.sh` will:
 - Create a Python virtual environment and install dependencies
 - Generate a strong random auth token and API key
@@ -301,6 +306,7 @@ python scripts/admin_cli.py purge --days 90
 | "Unrecognised QR code" on iPhone | You scanned something other than the `/qr` endpoint; try again |
 | `NSURLErrorDomain Code=-1022` (ATS) | Collector is serving plain HTTP — run `setup.sh` to issue a `tailscale cert` and enable HTTPS |
 | `account does not support getting TLS certs` | HTTPS Certificates are disabled on your Tailscale account. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), scroll to **HTTPS Certificates**, click **Enable**, then re-run `bash scripts/setup.sh` |
+| `SyntaxError` when running `python scripts/setup.sh` | Run the setup script with bash instead: `bash scripts/setup.sh` |
 | `401 Unauthorized` | Auth Token and/or API Key in iOS app does not match `.env` (`AHB_INGEST_TOKEN`, `AHB_API_KEY`) |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
 | `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle **MagicDNS** and **HTTPS Certificates** on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
