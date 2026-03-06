@@ -72,12 +72,18 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
             "<p>Add <code>AHB_USER_ID=yourname</code> to your <code>.env</code> file and restart the collector.</p>",
             status_code=400,
         )
-    scheme = "https" if (settings.tls_cert and settings.tls_key) else "http"
-    # Prefer the canonical Tailscale hostname stored in AHB_HOSTNAME so the QR
-    # payload always contains the hostname (not the IP), even when the browser
-    # reached this page via the Tailscale IP address.  Fall back to the Host
-    # header only when AHB_HOSTNAME is not configured.
-    host = settings.hostname or request.headers.get("host", "localhost:8443")
+    request_host = request.headers.get("host", "")
+
+    # Prefer the Host header for non-local requests so `/qr` opened via a
+    # Funnel hostname encodes that public hostname instead of AHB_HOSTNAME.
+    # This avoids producing `http://<host>:8443` configs when Funnel should be
+    # `https://<host>/...`.
+    is_local_host = request_host.startswith("localhost") or request_host.startswith("127.0.0.1")
+    host = request_host if request_host and not is_local_host else (settings.hostname or request_host or "localhost:8443")
+
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    is_funnel_host = host.endswith(".ts.net") and ":" not in host
+    scheme = "https" if (forwarded_proto == "https" or is_funnel_host or (settings.tls_cert and settings.tls_key)) else "http"
     payload = "ahb://configure?" + urlencode({
         "host": host,
         "scheme": scheme,
