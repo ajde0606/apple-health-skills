@@ -48,78 +48,110 @@ else
     fi
 fi
 
-SCHEME="http"
-TLS_OK=false
-TLS_PROBLEM=""
-if [ -z "${AHB_TLS_CERT:-}" ] || [ -z "${AHB_TLS_KEY:-}" ]; then
-    TLS_PROBLEM="AHB_TLS_CERT/AHB_TLS_KEY are missing in .env"
-elif [ ! -f "${AHB_TLS_CERT}" ] || [ ! -f "${AHB_TLS_KEY}" ]; then
-    TLS_PROBLEM="AHB_TLS_CERT or AHB_TLS_KEY path does not exist"
-else
-    SCHEME="https"
-    TLS_OK=true
-fi
+LOCAL_PORT="${AHB_PORT:-8443}"
+FUNNEL_MODE="${AHB_FUNNEL_MODE:-false}"
 
-echo "Starting Apple Health Bridge collector on port 8443..."
+echo "Starting Apple Health Bridge collector on port $LOCAL_PORT..."
 echo "  User:    $AHB_USER_ID"
 echo "  Devices: $AHB_ALLOWED_DEVICES"
 echo "  DB:      $AHB_DB_PATH"
 echo ""
 
-if $TLS_OK; then
-    echo "  HTTPS:   enabled (iOS connections will work)"
+if [[ "$FUNNEL_MODE" =~ ^(1|true|yes)$ ]]; then
+    # ── Funnel mode ───────────────────────────────────────────────────────────
+    echo "  Mode:    Tailscale Funnel (iPhone does NOT need Tailscale)"
+    echo "  HTTPS:   terminated by Tailscale Funnel (always on)"
+    echo ""
+
+    if [ -n "$TS_WARN" ]; then
+        echo "  WARNING: $TS_WARN"
+        echo ""
+    elif [ -n "$TS_HOSTNAME" ]; then
+        # Show Funnel status
+        FUNNEL_URL="https://$TS_HOSTNAME"
+        echo "  Public URL:   $FUNNEL_URL"
+        echo "  Local server: http://127.0.0.1:$LOCAL_PORT"
+        echo ""
+
+        # Verify Funnel is actually active
+        _FUNNEL_STATUS=$(tailscale funnel status 2>/dev/null || echo "")
+        if echo "$_FUNNEL_STATUS" | grep -q "$LOCAL_PORT"; then
+            echo "  Funnel:  active  ✓"
+        else
+            echo "  Funnel:  NOT active — run: tailscale funnel $LOCAL_PORT"
+        fi
+        echo ""
+        echo "  Test from anywhere (no Tailscale needed on client):"
+        echo "    curl $FUNNEL_URL/healthz"
+        echo ""
+        echo "  QR code (open in browser on this Mac, then scan with iPhone):"
+        echo "    http://127.0.0.1:$LOCAL_PORT/qr   ← open this, then scan"
+        echo "    (QR will encode $FUNNEL_URL as the iPhone's target)"
+    fi
 else
-    echo "  HTTPS:   DISABLED — iOS will reject all connections (ATS error -1022)"
-    echo "  Reason:  $TLS_PROBLEM"
-    echo "  Fix:     enable HTTPS by setting valid AHB_TLS_CERT and AHB_TLS_KEY in .env"
-    echo "           (Optional helper: enable MagicDNS + HTTPS certs in Tailscale admin, then run: bash scripts/setup.sh)"
-    echo ""
-fi
-
-if [ -n "$TS_WARN" ]; then
-    echo "  Tailscale:  $TS_WARN"
-    echo ""
-elif [ -n "$TS_IP" ]; then
-    # Check whether the MagicDNS hostname resolves on this machine
-    DNS_OK=false
-    if [ -n "$TS_HOSTNAME" ] && python3 -c "import socket; socket.getaddrinfo('$TS_HOSTNAME', 8443)" &>/dev/null; then
-        DNS_OK=true
-    fi
-
-    echo "  Tailscale IP:       $TS_IP"
-    if [ -n "$TS_HOSTNAME" ]; then
-        if $DNS_OK; then
-            echo "  Tailscale hostname: $TS_HOSTNAME  (resolves OK)"
-        else
-            echo "  Tailscale hostname: $TS_HOSTNAME  (DNS NOT resolving yet)"
-            echo "    → Enable MagicDNS at https://login.tailscale.com/admin/dns"
-            echo "      then re-run: bash scripts/setup.sh  (to issue a cert)"
-        fi
-    fi
-    echo ""
-    echo "  Test connectivity from this Mac:"
-    echo "    curl -k $SCHEME://$TS_IP:8443/healthz"
-    if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
-        echo "    curl    $SCHEME://$TS_HOSTNAME:8443/healthz"
-    fi
-    echo ""
-    echo "  QR code (open in browser on this Mac, then scan with iPhone):"
-    if $TLS_OK; then
-        # TLS cert is bound to the hostname — IP-based URL would cause a
-        # hostname-mismatch error (-1200) on iOS. Only show the hostname URL.
-        # The /qr endpoint uses AHB_HOSTNAME so the QR payload always contains
-        # the hostname even if you access the page via the Tailscale IP.
-        if [ -n "$TS_HOSTNAME" ]; then
-            echo "    $SCHEME://$TS_IP:8443/qr   ← open this in your browser, then scan"
-            echo "    (The QR code will encode the hostname $TS_HOSTNAME, not the IP)"
-        else
-            echo "    (no Tailscale hostname found — enable MagicDNS and re-run setup.sh)"
-            echo "    Enable MagicDNS at https://login.tailscale.com/admin/dns"
-        fi
+    # ── Classic VPN mode ──────────────────────────────────────────────────────
+    SCHEME="http"
+    TLS_OK=false
+    TLS_PROBLEM=""
+    if [ -z "${AHB_TLS_CERT:-}" ] || [ -z "${AHB_TLS_KEY:-}" ]; then
+        TLS_PROBLEM="AHB_TLS_CERT/AHB_TLS_KEY are missing in .env"
+    elif [ ! -f "${AHB_TLS_CERT}" ] || [ ! -f "${AHB_TLS_KEY}" ]; then
+        TLS_PROBLEM="AHB_TLS_CERT or AHB_TLS_KEY path does not exist"
     else
-        echo "    $SCHEME://$TS_IP:8443/qr"
+        SCHEME="https"
+        TLS_OK=true
+    fi
+
+    echo "  Mode:    Tailscale VPN (iPhone must have Tailscale installed)"
+    if $TLS_OK; then
+        echo "  HTTPS:   enabled (iOS connections will work)"
+    else
+        echo "  HTTPS:   DISABLED — iOS will reject all connections (ATS error -1022)"
+        echo "  Reason:  $TLS_PROBLEM"
+        echo "  Fix:     enable HTTPS by setting valid AHB_TLS_CERT and AHB_TLS_KEY in .env"
+        echo "           Or switch to Funnel mode: re-run bash scripts/setup.sh and choose option 1"
+    fi
+    echo ""
+
+    if [ -n "$TS_WARN" ]; then
+        echo "  Tailscale:  $TS_WARN"
+        echo ""
+    elif [ -n "$TS_IP" ]; then
+        DNS_OK=false
+        if [ -n "$TS_HOSTNAME" ] && python3 -c "import socket; socket.getaddrinfo('$TS_HOSTNAME', $LOCAL_PORT)" &>/dev/null; then
+            DNS_OK=true
+        fi
+
+        echo "  Tailscale IP:       $TS_IP"
+        if [ -n "$TS_HOSTNAME" ]; then
+            if $DNS_OK; then
+                echo "  Tailscale hostname: $TS_HOSTNAME  (resolves OK)"
+            else
+                echo "  Tailscale hostname: $TS_HOSTNAME  (DNS NOT resolving yet)"
+                echo "    → Enable MagicDNS at https://login.tailscale.com/admin/dns"
+                echo "      then re-run: bash scripts/setup.sh  (to issue a cert)"
+            fi
+        fi
+        echo ""
+        echo "  Test connectivity from this Mac:"
+        echo "    curl -k $SCHEME://$TS_IP:$LOCAL_PORT/healthz"
         if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
-            echo "    $SCHEME://$TS_HOSTNAME:8443/qr"
+            echo "    curl    $SCHEME://$TS_HOSTNAME:$LOCAL_PORT/healthz"
+        fi
+        echo ""
+        echo "  QR code (open in browser on this Mac, then scan with iPhone):"
+        if $TLS_OK; then
+            if [ -n "$TS_HOSTNAME" ]; then
+                echo "    $SCHEME://$TS_IP:$LOCAL_PORT/qr   ← open this in your browser, then scan"
+                echo "    (The QR code will encode the hostname $TS_HOSTNAME, not the IP)"
+            else
+                echo "    (no Tailscale hostname found — enable MagicDNS and re-run setup.sh)"
+            fi
+        else
+            echo "    $SCHEME://$TS_IP:$LOCAL_PORT/qr"
+            if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
+                echo "    $SCHEME://$TS_HOSTNAME:$LOCAL_PORT/qr"
+            fi
         fi
     fi
 fi
