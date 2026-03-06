@@ -21,10 +21,13 @@ def get_settings() -> Settings:
 
 def auth(
     x_ingest_token: str = Header(default=""),
+    x_api_key: str = Header(default=""),
     settings: Settings = Depends(get_settings),
 ) -> Settings:
     if x_ingest_token != settings.ingest_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid ingest token")
+    if settings.api_key and x_api_key != settings.api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key")
     return settings
 
 
@@ -49,11 +52,14 @@ def startup() -> None:
 
 def bearer_auth(
     authorization: str = Header(default=""),
+    x_api_key: str = Header(default=""),
     settings: Settings = Depends(get_settings),
 ) -> Settings:
     expected = f"Bearer {settings.ingest_token}"
     if authorization != expected:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid bearer token")
+    if settings.api_key and x_api_key != settings.api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key")
     return settings
 
 
@@ -76,6 +82,7 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
         "host": host,
         "scheme": scheme,
         "token": settings.ingest_token,
+        "api_key": settings.api_key,
         "user": settings.user_id,
     })
     log_event(f"qr generated host={host} scheme={scheme}")

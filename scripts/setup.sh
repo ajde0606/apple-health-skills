@@ -54,10 +54,15 @@ fi
 
 # ── 4. Generate auth token ─────────────────────────────────────────────────────
 TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+API_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
 echo ""
 echo "─── Auth Token (generated) ──────────────────────────────────────────────"
 echo "  $TOKEN"
 echo "  → Copy this into the Auth Token field in the iOS app Settings."
+echo ""
+echo "─── API Key (generated) ─────────────────────────────────────────────────"
+echo "  $API_KEY"
+echo "  → Copy this into the API Key field in the iOS app Settings."
 
 # ── 5. Write .env ──────────────────────────────────────────────────────────────
 mkdir -p "$DB_DIR"
@@ -68,6 +73,7 @@ cat > "$ENV_FILE" <<EOF
 
 AHB_USER_ID=$USER_ID
 AHB_INGEST_TOKEN=$TOKEN
+AHB_API_KEY=$API_KEY
 AHB_ALLOWED_DEVICES=$DEVICE_ID
 AHB_DB_PATH=$DB_DIR/health.db
 EOF
