@@ -60,6 +60,13 @@ else
     TLS_OK=true
 fi
 
+# Kill any existing collector process so we can bind port 8443 cleanly.
+if pgrep -f "python -m mac.collector.main" >/dev/null 2>&1; then
+    echo "Stopping existing collector process..."
+    pkill -f "python -m mac.collector.main" >/dev/null 2>&1 || true
+    sleep 1
+fi
+
 echo "Starting Apple Health Bridge collector on port 8443..."
 echo "  User:    $AHB_USER_ID"
 echo "  Devices: $AHB_ALLOWED_DEVICES"
