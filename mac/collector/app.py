@@ -82,6 +82,12 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
     host = request_host if request_host and not is_local_host else (settings.hostname or request_host or "localhost:8443")
 
     forwarded_proto = request.headers.get("x-forwarded-proto", "")
+
+    # Normalize ts.net host formatting for Funnel/public URLs.
+    # Tailscale Funnel expects ingress host without :8443 (public HTTPS is 443).
+    if host.endswith(".ts.net:8443") or host.endswith(".ts.net:443"):
+        host = host.rsplit(":", 1)[0]
+
     is_funnel_host = host.endswith(".ts.net") and ":" not in host
     scheme = "https" if (forwarded_proto == "https" or is_funnel_host or (settings.tls_cert and settings.tls_key)) else "http"
     payload = "ahb://configure?" + urlencode({

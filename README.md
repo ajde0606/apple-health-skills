@@ -219,7 +219,7 @@ Funnel traffic is public on the internet, so keep both `AHB_INGEST_TOKEN` and `A
 > Auth Token, and API Key.
 >
 > For Funnel mode, use the host exactly as `janices-macbook-air.tailxxxx.ts.net`
-> (no `http://` prefix and no `:8443` suffix). The app should use HTTPS.
+> (no `http://` prefix and no `:8443` suffix). The app should use HTTPS on default port 443.
 
 The app home screen now includes a **Sync Logs** panel with timestamped sync events
 (authorization, background triggers, queued retries, and upload outcomes).
@@ -324,6 +324,7 @@ python scripts/admin_cli.py purge --days 90
 | `SyntaxError` when running `python scripts/setup.sh` | Run the setup script with bash instead: `bash scripts/setup.sh` |
 | Funnel URL returns `HTTP ERROR 502` | Funnel is proxying `http://127.0.0.1:8443` but collector TLS is enabled. Remove/comment `AHB_TLS_CERT` and `AHB_TLS_KEY`, restart collector, then run `tailscale funnel --bg 8443` again. |
 | iOS error shows `NSErrorFailingURLStringKey=http://<funnel-host>:8443/ingest` | The app is using stale/non-Funnel config. Re-scan `/qr` from the Funnel URL and ensure it sets HTTPS + Funnel hostname without `:8443`. |
+| Tailscale log shows `handleIngress: got ingress conn for unconfigured "<funnel-host>:8443"` | Client is calling Funnel with `:8443`, but Funnel ingress is configured for HTTPS host on 443. Remove port from app host, re-scan `/qr` from Funnel URL, and retry. |
 | `401 Unauthorized` | Auth Token and/or API Key in iOS app does not match `.env` (`AHB_INGEST_TOKEN`, `AHB_API_KEY`) |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
 | `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle **MagicDNS** and **HTTPS Certificates** on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
