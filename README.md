@@ -187,7 +187,7 @@ tailscale funnel status
 > restart the collector, and run `tailscale funnel --bg 8443` again.
 
 Use the HTTPS Funnel hostname shown by `tailscale funnel --bg 8443` for iPhone setup.
-Open `/qr` using that Funnel URL so the QR encodes the correct host/scheme.
+Open `/qr` using that Funnel URL so the QR encodes the correct host/scheme (without `:8443`).
 Funnel traffic is public on the internet, so keep both `AHB_INGEST_TOKEN` and `AHB_API_KEY` secret.
 
 ---
@@ -334,6 +334,7 @@ python scripts/admin_cli.py purge --days 90
 | Funnel URL returns `HTTP ERROR 502` | Funnel is proxying `http://127.0.0.1:8443` but collector TLS is enabled. Remove/comment `AHB_TLS_CERT` and `AHB_TLS_KEY`, restart collector, then run `tailscale funnel --bg 8443` again. |
 | iOS error shows `NSErrorFailingURLStringKey=http://<funnel-host>:8443/ingest` | The app is using stale/non-Funnel config. Re-scan `/qr` from the Funnel URL and ensure it sets HTTPS + Funnel hostname without `:8443`. |
 | Tailscale log shows `handleIngress: got ingress conn for unconfigured "<funnel-host>:8443"` | Client is calling `:8443` but Funnel is configured on 443. Either re-scan `/qr` so client uses host without port, **or** run `tailscale funnel --bg --https=8443 8443` to support `:8443`. |
+| iOS `NSURLErrorDomain Code=-1200` for `https://<funnel-host>:8443/...` | TLS is failing on the explicit `:8443` URL. Re-scan `/qr` from `https://<funnel-host>/qr` so app uses host without port. If you must keep `:8443`, configure Funnel compat mode with `tailscale funnel --bg --https=8443 8443`. |
 | `401 Unauthorized` | Auth Token and/or API Key in iOS app does not match `.env` (`AHB_INGEST_TOKEN`, `AHB_API_KEY`) |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
 | `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle **MagicDNS** and **HTTPS Certificates** on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |

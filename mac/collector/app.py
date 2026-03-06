@@ -19,6 +19,23 @@ def get_settings() -> Settings:
     return load_settings()
 
 
+def _normalize_public_host(host: str) -> str:
+    """Normalize public hostnames so Funnel URLs avoid explicit ports.
+
+    For ts.net hosts, strip any explicit numeric port (e.g. :8443, :443)
+    because Funnel public HTTPS routing is hostname based.
+    """
+    host = host.strip().rstrip(".")
+    if not host:
+        return host
+    lower = host.lower()
+    if ":" in host:
+        name, _, port = host.rpartition(":")
+        if name.lower().endswith(".ts.net") and port.isdigit():
+            return name
+    return host
+
+
 def auth(
     x_ingest_token: str = Header(default=""),
     x_api_key: str = Header(default=""),
@@ -84,11 +101,9 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
     forwarded_proto = request.headers.get("x-forwarded-proto", "")
 
     # Normalize ts.net host formatting for Funnel/public URLs.
-    # Tailscale Funnel expects ingress host without :8443 (public HTTPS is 443).
-    if host.endswith(".ts.net:8443") or host.endswith(".ts.net:443"):
-        host = host.rsplit(":", 1)[0]
+    host = _normalize_public_host(host)
 
-    is_funnel_host = host.endswith(".ts.net") and ":" not in host
+    is_funnel_host = host.lower().endswith(".ts.net") and ":" not in host
     scheme = "https" if (forwarded_proto == "https" or is_funnel_host or (settings.tls_cert and settings.tls_key)) else "http"
     payload = "ahb://configure?" + urlencode({
         "host": host,
