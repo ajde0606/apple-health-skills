@@ -31,6 +31,7 @@ def _read_dotenv(path: Path) -> dict[str, str]:
 @dataclass(frozen=True)
 class Settings:
     ingest_token: str
+    api_key: str
     allowed_devices: set[str]
     db_path: str
     user_id: str
@@ -71,6 +72,7 @@ def load_settings() -> Settings:
         return os.environ.get(name, dotenv.get(name, default))
 
     token = get("AHB_INGEST_TOKEN", "dev-token")
+    api_key = get("AHB_API_KEY", "")
     allowed = get("AHB_ALLOWED_DEVICES", "")
     db_path = get("AHB_DB_PATH", "db/health.db")
     user_id = get("AHB_USER_ID", "")
@@ -80,6 +82,7 @@ def load_settings() -> Settings:
     allowed_devices = {item.strip() for item in allowed.split(",") if item.strip()}
     return Settings(
         ingest_token=token,
+        api_key=api_key,
         allowed_devices=allowed_devices,
         db_path=db_path,
         user_id=user_id,

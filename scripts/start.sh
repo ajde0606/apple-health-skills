@@ -103,6 +103,11 @@ elif [ -n "$TS_IP" ]; then
         echo "    curl    $SCHEME://$TS_HOSTNAME:8443/healthz"
     fi
     echo ""
+    echo "  Optional: expose publicly so iPhone does NOT need Tailscale app:"
+    echo "    tailscale funnel 8443"
+    echo "    tailscale funnel status"
+    echo "    (then use https://<funnel-hostname>/qr on iPhone setup)"
+    echo ""
     echo "  QR code (open in browser on this Mac, then scan with iPhone):"
     if $TLS_OK; then
         # TLS cert is bound to the hostname — IP-based URL would cause a
