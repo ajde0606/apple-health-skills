@@ -69,19 +69,29 @@ if launchctl list 2>/dev/null | grep -q "$_LAUNCHD_LABEL"; then
 fi
 # 2) Force-kill the collector process by name.
 pkill -9 -f "python -m mac.collector.main" >/dev/null 2>&1 || true
-# 3) Poll until port 8443 is actually free, force-killing anything still holding it.
+# 3) Poll until port 8443 is actually free.
+#    If tailscaled holds the port (via a persistent 'tailscale serve' config),
+#    reset that config — we cannot and should not SIGKILL tailscaled itself.
 _MAX_WAIT=10
 _WAITED=0
+_TS_SERVE_RESET=false
 while true; do
     _PORT_PIDS=$(lsof -ti tcp:8443 2>/dev/null || true)
     [ -z "$_PORT_PIDS" ] && break
     if [ "$_WAITED" -ge "$_MAX_WAIT" ]; then
-        echo "ERROR: port 8443 still held by PID(s) $(echo "$_PORT_PIDS" | tr '\n' ' ')after ${_MAX_WAIT}s — kill manually and retry."
+        echo "ERROR: port 8443 still held after ${_MAX_WAIT}s. Run 'tailscale serve reset' or kill PID(s) $(echo "$_PORT_PIDS" | tr '\n' ' ')manually and retry."
         exit 1
     fi
-    echo "Waiting for port 8443 to be released (held by PID(s) $(echo "$_PORT_PIDS" | tr '\n' ' '))..."
-    # shellcheck disable=SC2086
-    kill -9 $_PORT_PIDS 2>/dev/null || true
+    # Check if tailscaled is the holder; if so, clear its serve config instead of killing it.
+    _HOLDER_NAMES=$(ps -p "$(echo "$_PORT_PIDS" | tr '\n' ',')" -o comm= 2>/dev/null || true)
+    if echo "$_HOLDER_NAMES" | grep -q "tailscaled" && ! $_TS_SERVE_RESET; then
+        echo "  tailscaled is holding port 8443 (leftover 'tailscale serve' config). Resetting..."
+        tailscale serve reset 2>/dev/null || true
+        _TS_SERVE_RESET=true
+    else
+        # shellcheck disable=SC2086
+        kill -9 $_PORT_PIDS 2>/dev/null || true
+    fi
     sleep 1
     _WAITED=$((_WAITED + 1))
 done
