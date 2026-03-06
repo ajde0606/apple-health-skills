@@ -38,7 +38,7 @@ if ! command -v tailscale &>/dev/null; then
 else
     _TS_STATUS_ERR=$(tailscale status 2>&1 >/dev/null || true)
     if echo "$_TS_STATUS_ERR" | grep -qi "not running\|failed to connect\|is tailscale running"; then
-        TS_WARN="Tailscale is installed but not running. Start it with one of: `sudo systemctl start tailscaled`, `sudo service tailscaled start`, or `sudo tailscaled >/tmp/tailscaled.log 2>&1 &` (separate terminal)."
+        TS_WARN="Tailscale is installed but not running. Start the Tailscale app on macOS, or run one of these on Linux: sudo systemctl start tailscaled ; sudo service tailscaled start ; sudo tailscaled >/tmp/tailscaled.log 2>&1 & (separate terminal)."
     fi
     if [ -z "$TS_WARN" ]; then
         TS_IP=$(tailscale ip -4 2>/dev/null || echo "")

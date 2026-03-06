@@ -109,9 +109,10 @@ if [ "$_TS_BLOCKED" = "not installed" ]; then
     echo "  Without HTTPS, iOS will block all connections."
 elif [ "$_TS_BLOCKED" = "not running" ]; then
     echo "  Tailscale is installed but not running."
-    echo "  Start it:  `sudo systemctl start tailscaled`"
-    echo "             or `sudo service tailscaled start`"
-    echo "             or `sudo tailscaled >/tmp/tailscaled.log 2>&1 &` (separate terminal)"
+    echo "  On macOS, open the Tailscale app and connect your account."
+    echo "  Start it (Linux):  sudo systemctl start tailscaled"
+    echo "                    or sudo service tailscaled start"
+    echo "                    or sudo tailscaled >/tmp/tailscaled.log 2>&1 & (separate terminal)"
     echo "  Then re-run: bash scripts/setup.sh"
     echo "  Without HTTPS, iOS will block all connections."
 elif [ -n "$TS_HOSTNAME" ]; then
