@@ -61,24 +61,30 @@ else
 fi
 
 # Kill any existing collector and free port 8443 before starting.
-# 1) Unload the launchd agent if it is loaded (it would otherwise restart the process).
+# 1) Unload the launchd agent if loaded (prevents it from restarting the process).
 _LAUNCHD_LABEL="com.applehealthbridge.collector"
 if launchctl list 2>/dev/null | grep -q "$_LAUNCHD_LABEL"; then
     _PLIST="${HOME}/Library/LaunchAgents/${_LAUNCHD_LABEL}.plist"
     launchctl unload "$_PLIST" >/dev/null 2>&1 || true
 fi
-# 2) Kill any remaining collector process by name.
-pkill -f "python -m mac.collector.main" >/dev/null 2>&1 || true
-# 3) If something else still holds :8443, kill it too.
-if command -v lsof &>/dev/null; then
-    _PORT_PID=$(lsof -ti tcp:8443 2>/dev/null || true)
-    if [ -n "$_PORT_PID" ]; then
-        echo "Freeing port 8443 (pid $_PORT_PID)..."
-        kill "$_PORT_PID" 2>/dev/null || true
+# 2) Force-kill the collector process by name.
+pkill -9 -f "python -m mac.collector.main" >/dev/null 2>&1 || true
+# 3) Poll until port 8443 is actually free, force-killing anything still holding it.
+_MAX_WAIT=10
+_WAITED=0
+while true; do
+    _PORT_PIDS=$(lsof -ti tcp:8443 2>/dev/null || true)
+    [ -z "$_PORT_PIDS" ] && break
+    if [ "$_WAITED" -ge "$_MAX_WAIT" ]; then
+        echo "ERROR: port 8443 still held by PID(s) $(echo "$_PORT_PIDS" | tr '\n' ' ')after ${_MAX_WAIT}s — kill manually and retry."
+        exit 1
     fi
-fi
-# Give the OS a moment to release the socket.
-sleep 1
+    echo "Waiting for port 8443 to be released (held by PID(s) $(echo "$_PORT_PIDS" | tr '\n' ' '))..."
+    # shellcheck disable=SC2086
+    kill -9 $_PORT_PIDS 2>/dev/null || true
+    sleep 1
+    _WAITED=$((_WAITED + 1))
+done
 
 echo "Starting Apple Health Bridge collector on port 8443..."
 echo "  User:    $AHB_USER_ID"
