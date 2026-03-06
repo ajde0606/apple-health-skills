@@ -66,6 +66,25 @@ echo "  Devices: $AHB_ALLOWED_DEVICES"
 echo "  DB:      $AHB_DB_PATH"
 echo ""
 
+# If Funnel is configured to proxy plain HTTP to 127.0.0.1:8443 while the
+# collector expects HTTPS on 8443, public requests will fail with HTTP 502.
+FUNNEL_HTTP_BACKEND=false
+if command -v tailscale &>/dev/null; then
+    _FUNNEL_STATUS=$(tailscale funnel status 2>/dev/null || true)
+    if echo "$_FUNNEL_STATUS" | grep -q "proxy http://127.0.0.1:8443"; then
+        FUNNEL_HTTP_BACKEND=true
+    fi
+fi
+
+if $TLS_OK && $FUNNEL_HTTP_BACKEND; then
+    echo "  WARNING: Funnel currently forwards plain HTTP to 127.0.0.1:8443,"
+    echo "           but collector TLS is enabled on :8443. This causes HTTP 502."
+    echo "  Fix for Funnel mode: remove AHB_TLS_CERT/AHB_TLS_KEY from .env,"
+    echo "                       restart collector, then re-run: tailscale funnel --bg 8443"
+    echo "  (Funnel already provides public HTTPS.)"
+    echo ""
+fi
+
 if $TLS_OK; then
     echo "  HTTPS:   enabled (iOS connections will work)"
 else
@@ -102,6 +121,14 @@ elif [ -n "$TS_IP" ]; then
     if [ -n "$TS_HOSTNAME" ] && $DNS_OK; then
         echo "    curl    $SCHEME://$TS_HOSTNAME:8443/healthz"
     fi
+    echo ""
+    echo "  Optional: expose publicly so iPhone does NOT need Tailscale app:"
+    echo "    tailscale funnel --bg 8443"
+    echo "    tailscale funnel status"
+    echo "    (without --bg it exits with Ctrl+C and leaves no active config)"
+    echo "    (if you get HTTP 502, disable collector TLS in .env for Funnel mode)"
+    echo "    (default Funnel URL is https://<host>/...)"
+    echo "    (if client insists on :8443, run: tailscale funnel --bg --https=8443 8443)"
     echo ""
     echo "  QR code (open in browser on this Mac, then scan with iPhone):"
     if $TLS_OK; then
