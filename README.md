@@ -7,7 +7,8 @@
 Stream your iPhone’s Apple Health data to your Mac in real time. 
 Your Mac does not need to be on the same Wi-Fi network. Using Tailscale, your 
 iPhone can stream Apple Health data securely to your Mac from anywhere in the 
-world, as long as the phone has an internet connection.
+world, as long as the phone has an internet connection. You can use Tailscale 
+Funnel so the iPhone app does not need Tailscale installed.
 
 Apple Health Bridge syncs health metrics from **Apple Health / HealthKit** to a
 local Mac server, where an AI agent (OpenClaw) can analyze trends, detect
@@ -53,7 +54,9 @@ Install these apps from the App Store:
 | App | Purpose |
 |-----|---------|
 | **IOS Health Bridge** | Reads HealthKit and uploads to your Mac |
-| **Tailscale** | Secure VPN so your iPhone can reach your Mac from anywhere |
+| **Tailscale** | Needed on Mac to run the collector and enable Funnel |
+
+With Funnel enabled, **Tailscale is optional on iPhone**.
 
 Optional for live workout heart-rate streaming:
 
@@ -69,7 +72,7 @@ Sign in to Tailscale with any account (Google, GitHub, Apple, or email).
 
 ### 2.1 Install Tailscale on Mac
 
-Use either option below, then sign in with the **same** Tailscale account you used on iOS.
+Use either option below, then sign in on your Mac.
 
 Option A:
 - Install from [tailscale.com/download](https://tailscale.com/download)
@@ -101,9 +104,14 @@ cd apple-health-skills
 bash scripts/setup.sh
 ```
 
+> ⚠️ `setup.sh` is a **bash script**, not a Python script. If you run
+> `python scripts/setup.sh`, Python will fail with `SyntaxError`.
+> If you prefer Python-style invocation, use the compatibility launcher:
+> `python scripts/setup.py`.
+
 `setup.sh` will:
 - Create a Python virtual environment and install dependencies
-- Generate a strong random auth token
+- Generate a strong random auth token and API key
 - Run `tailscale cert` to issue an HTTPS certificate (required for iOS)
 - Write everything to a `.env` file (never committed to git)
 - Ask for your device ID (find it in the IOS Health Bridge app)
@@ -114,6 +122,7 @@ You can also edit `.env` by hand — the only required variables are:
 ```
 AHB_USER_ID=alice
 AHB_INGEST_TOKEN=<random secret>
+AHB_API_KEY=<random secret>
 AHB_ALLOWED_DEVICES=iphone-<your device id>
 ```
 
@@ -145,6 +154,42 @@ curl -sk https://<tailscale-ip>:8443/healthz
 curl -s https://<tailscale-hostname>:8443/healthz
 ```
 
+### 2.5 Expose collector with Tailscale Funnel (no Tailscale app needed on iPhone)
+
+After the collector is running, enable Funnel in background mode.
+
+**Recommended (public HTTPS on 443):**
+
+```bash
+tailscale funnel --bg 8443
+```
+
+**Compatibility mode (accept `https://<host>:8443/...` clients):**
+
+```bash
+tailscale funnel --bg --https=8443 8443
+```
+
+Then verify the active serve/funnel config:
+
+```bash
+tailscale funnel status
+```
+
+> If you run `tailscale funnel 8443` (without `--bg`), it stays attached to your terminal
+> and exits when you press Ctrl+C. Use `--bg` for a persistent config.
+
+> **Important for Funnel:** Funnel terminates HTTPS publicly and forwards plain HTTP
+> to `127.0.0.1:8443` by default. If collector TLS is enabled (`AHB_TLS_CERT`/`AHB_TLS_KEY`),
+> Funnel requests can fail with **HTTP 502**.
+>
+> For Funnel mode, remove or comment out `AHB_TLS_CERT` and `AHB_TLS_KEY` in `.env`,
+> restart the collector, and run `tailscale funnel --bg 8443` again.
+
+Use the HTTPS Funnel hostname shown by `tailscale funnel --bg 8443` for iPhone setup.
+Open `/qr` using that Funnel URL so the QR encodes the correct host/scheme (without `:8443`).
+Funnel traffic is public on the internet, so keep both `AHB_INGEST_TOKEN` and `AHB_API_KEY` secret.
+
 ---
 
 ## Step 3 — Connect the iOS app
@@ -153,14 +198,17 @@ curl -s https://<tailscale-hostname>:8443/healthz
 
 1. On your Mac, open the `/qr` page in a browser:
    ```
+   https://<funnel-hostname>/qr  (recommended for no-Tailscale iPhone)
+   # or
    https://<tailscale-ip>:8443/qr
    ```
 2. Open **IOS Health Bridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
-3. Point the camera at the QR code. All fields, including the `https://` scheme, fill in automatically.
+3. Point the camera at the QR code. All fields fill in automatically.
+4. If you switch from direct Tailscale mode to Funnel mode, **re-scan** the QR so the app updates to the Funnel host/scheme.
 
-> **HTTPS is required.** If the collector is not serving HTTPS (i.e. `AHB_TLS_CERT`/`AHB_TLS_KEY`
-> are not set), iOS will reject all connections with an App Transport Security error.
-> Run `setup.sh` to issue the certificate automatically.
+> **HTTPS is required for the iPhone URL.**
+> - If connecting directly over Tailscale/MagicDNS, collector must serve HTTPS (`AHB_TLS_CERT`/`AHB_TLS_KEY`).
+> - If connecting via Funnel hostname, Funnel already provides HTTPS externally, so collector can run HTTP locally.
 
 ### 3.2 Sync
 
@@ -175,8 +223,12 @@ curl -s https://<tailscale-hostname>:8443/healthz
 > observer execution until you open the app again.
 >
 > **Manual setup (fallback):** If you can't use the QR code, tap the gear icon
-> and fill in the fields under *Manual Override*: User ID, Collector Host, and
-> Auth Token.
+> and fill in the fields under *Manual Override*: User ID, Collector Host,
+> Auth Token, and API Key.
+>
+> For Funnel mode, use the host exactly as `janices-macbook-air.tailxxxx.ts.net`
+> (no `http://` prefix). Prefer no port (default 443). If your client is fixed to `:8443`,
+> run Funnel in compatibility mode with `--https=8443`.
 
 The app home screen now includes a **Sync Logs** panel with timestamped sync events
 (authorization, background triggers, queued retries, and upload outcomes).
@@ -278,10 +330,15 @@ python scripts/admin_cli.py purge --days 90
 | "Unrecognised QR code" on iPhone | You scanned something other than the `/qr` endpoint; try again |
 | `NSURLErrorDomain Code=-1022` (ATS) | Collector is serving plain HTTP — run `setup.sh` to issue a `tailscale cert` and enable HTTPS |
 | `account does not support getting TLS certs` | HTTPS Certificates are disabled on your Tailscale account. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), scroll to **HTTPS Certificates**, click **Enable**, then re-run `bash scripts/setup.sh` |
-| `401 Unauthorized` | Token in iOS app doesn't match `AHB_INGEST_TOKEN` in `.env` |
+| `SyntaxError` when running `python scripts/setup.sh` | Run the setup script with bash instead: `bash scripts/setup.sh` |
+| Funnel URL returns `HTTP ERROR 502` | Funnel is proxying `http://127.0.0.1:8443` but collector TLS is enabled. Remove/comment `AHB_TLS_CERT` and `AHB_TLS_KEY`, restart collector, then run `tailscale funnel --bg 8443` again. |
+| iOS error shows `NSErrorFailingURLStringKey=http://<funnel-host>:8443/ingest` | The app is using stale/non-Funnel config. Re-scan `/qr` from the Funnel URL and ensure it sets HTTPS + Funnel hostname without `:8443`. |
+| Tailscale log shows `handleIngress: got ingress conn for unconfigured "<funnel-host>:8443"` | Client is calling `:8443` but Funnel is configured on 443. Either re-scan `/qr` so client uses host without port, **or** run `tailscale funnel --bg --https=8443 8443` to support `:8443`. |
+| iOS `NSURLErrorDomain Code=-1200` for `https://<funnel-host>:8443/...` | TLS is failing on the explicit `:8443` URL. Re-scan `/qr` from `https://<funnel-host>/qr` so app uses host without port. If you must keep `:8443`, configure Funnel compat mode with `tailscale funnel --bg --https=8443 8443`. |
+| `401 Unauthorized` | Auth Token and/or API Key in iOS app does not match `.env` (`AHB_INGEST_TOKEN`, `AHB_API_KEY`) |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
 | `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle **MagicDNS** and **HTTPS Certificates** on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
-| iOS can't reach collector | Confirm both devices show as connected in `tailscale status`; verify MagicDNS is on; verify `start.sh` shows HTTPS as enabled |
+| iOS can't reach collector | If using Funnel: run `tailscale funnel --bg 8443`, then verify with `tailscale funnel status` (it must show an active config). If using Tailscale LAN: confirm both devices are connected and MagicDNS is enabled. |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
 
@@ -292,6 +349,7 @@ python scripts/admin_cli.py purge --days 90
 | `AHB_USER_ID` | Short user identifier (e.g. `alice`) — namespaces all DB rows |
 | `AHB_INGEST_TOKEN` | Random secret — must match iOS app Auth Token |
 | `AHB_ALLOWED_DEVICES` | Comma-separated device IDs allowed to ingest |
+| `AHB_API_KEY` | Additional API key required on ingest requests (recommended for Funnel/public exposure) |
 | `AHB_DB_PATH` | Path to SQLite database (default `db/health.db`) |
 | `AHB_TLS_CERT` | Path to TLS certificate file (issued by `tailscale cert`) |
 | `AHB_TLS_KEY` | Path to TLS private key file (issued by `tailscale cert`) |

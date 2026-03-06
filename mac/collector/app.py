@@ -19,12 +19,32 @@ def get_settings() -> Settings:
     return load_settings()
 
 
+def _normalize_public_host(host: str) -> str:
+    """Normalize public hostnames so Funnel URLs avoid explicit ports.
+
+    For ts.net hosts, strip any explicit numeric port (e.g. :8443, :443)
+    because Funnel public HTTPS routing is hostname based.
+    """
+    host = host.strip().rstrip(".")
+    if not host:
+        return host
+    lower = host.lower()
+    if ":" in host:
+        name, _, port = host.rpartition(":")
+        if name.lower().endswith(".ts.net") and port.isdigit():
+            return name
+    return host
+
+
 def auth(
     x_ingest_token: str = Header(default=""),
+    x_api_key: str = Header(default=""),
     settings: Settings = Depends(get_settings),
 ) -> Settings:
     if x_ingest_token != settings.ingest_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid ingest token")
+    if settings.api_key and x_api_key != settings.api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key")
     return settings
 
 
@@ -49,11 +69,14 @@ def startup() -> None:
 
 def bearer_auth(
     authorization: str = Header(default=""),
+    x_api_key: str = Header(default=""),
     settings: Settings = Depends(get_settings),
 ) -> Settings:
     expected = f"Bearer {settings.ingest_token}"
     if authorization != expected:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid bearer token")
+    if settings.api_key and x_api_key != settings.api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key")
     return settings
 
 
@@ -66,16 +89,27 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
             "<p>Add <code>AHB_USER_ID=yourname</code> to your <code>.env</code> file and restart the collector.</p>",
             status_code=400,
         )
-    scheme = "https" if (settings.tls_cert and settings.tls_key) else "http"
-    # Prefer the canonical Tailscale hostname stored in AHB_HOSTNAME so the QR
-    # payload always contains the hostname (not the IP), even when the browser
-    # reached this page via the Tailscale IP address.  Fall back to the Host
-    # header only when AHB_HOSTNAME is not configured.
-    host = settings.hostname or request.headers.get("host", "localhost:8443")
+    request_host = request.headers.get("host", "")
+
+    # Prefer the Host header for non-local requests so `/qr` opened via a
+    # Funnel hostname encodes that public hostname instead of AHB_HOSTNAME.
+    # This avoids producing `http://<host>:8443` configs when Funnel should be
+    # `https://<host>/...`.
+    is_local_host = request_host.startswith("localhost") or request_host.startswith("127.0.0.1")
+    host = request_host if request_host and not is_local_host else (settings.hostname or request_host or "localhost:8443")
+
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+
+    # Normalize ts.net host formatting for Funnel/public URLs.
+    host = _normalize_public_host(host)
+
+    is_funnel_host = host.lower().endswith(".ts.net") and ":" not in host
+    scheme = "https" if (forwarded_proto == "https" or is_funnel_host or (settings.tls_cert and settings.tls_key)) else "http"
     payload = "ahb://configure?" + urlencode({
         "host": host,
         "scheme": scheme,
         "token": settings.ingest_token,
+        "api_key": settings.api_key,
         "user": settings.user_id,
     })
     log_event(f"qr generated host={host} scheme={scheme}")
