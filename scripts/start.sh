@@ -60,12 +60,25 @@ else
     TLS_OK=true
 fi
 
-# Kill any existing collector process so we can bind port 8443 cleanly.
-if pgrep -f "python -m mac.collector.main" >/dev/null 2>&1; then
-    echo "Stopping existing collector process..."
-    pkill -f "python -m mac.collector.main" >/dev/null 2>&1 || true
-    sleep 1
+# Kill any existing collector and free port 8443 before starting.
+# 1) Unload the launchd agent if it is loaded (it would otherwise restart the process).
+_LAUNCHD_LABEL="com.applehealthbridge.collector"
+if launchctl list 2>/dev/null | grep -q "$_LAUNCHD_LABEL"; then
+    _PLIST="${HOME}/Library/LaunchAgents/${_LAUNCHD_LABEL}.plist"
+    launchctl unload "$_PLIST" >/dev/null 2>&1 || true
 fi
+# 2) Kill any remaining collector process by name.
+pkill -f "python -m mac.collector.main" >/dev/null 2>&1 || true
+# 3) If something else still holds :8443, kill it too.
+if command -v lsof &>/dev/null; then
+    _PORT_PID=$(lsof -ti tcp:8443 2>/dev/null || true)
+    if [ -n "$_PORT_PID" ]; then
+        echo "Freeing port 8443 (pid $_PORT_PID)..."
+        kill "$_PORT_PID" 2>/dev/null || true
+    fi
+fi
+# Give the OS a moment to release the socket.
+sleep 1
 
 echo "Starting Apple Health Bridge collector on port 8443..."
 echo "  User:    $AHB_USER_ID"
