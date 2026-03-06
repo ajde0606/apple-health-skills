@@ -156,19 +156,22 @@ curl -s https://<tailscale-hostname>:8443/healthz
 
 ### 2.5 Expose collector with Tailscale Funnel (no Tailscale app needed on iPhone)
 
-After the collector is running, enable Funnel on port 8443:
+After the collector is running, enable Funnel on port 8443 **in background mode**:
 
 ```bash
-tailscale funnel 8443
+tailscale funnel --bg 8443
 ```
 
-Get your public Funnel URL:
+Then verify the active serve/funnel config:
 
 ```bash
 tailscale funnel status
 ```
 
-Use the HTTPS Funnel hostname from that output for iPhone setup (manual override or QR host).
+> If you run `tailscale funnel 8443` (without `--bg`), it stays attached to your terminal
+> and exits when you press Ctrl+C. Use `--bg` for a persistent config.
+
+Use the HTTPS Funnel hostname shown by `tailscale funnel --bg 8443` for iPhone setup (manual override or QR host).
 Funnel traffic is public on the internet, so keep both `AHB_INGEST_TOKEN` and `AHB_API_KEY` secret.
 
 ---
@@ -310,7 +313,7 @@ python scripts/admin_cli.py purge --days 90
 | `401 Unauthorized` | Auth Token and/or API Key in iOS app does not match `.env` (`AHB_INGEST_TOKEN`, `AHB_API_KEY`) |
 | `403 Forbidden` | Device ID not in `AHB_ALLOWED_DEVICES` — copy it from Settings and add to `.env` |
 | `curl: (6) Could not resolve host` | MagicDNS not enabled. Go to [Tailscale admin → DNS](https://login.tailscale.com/admin/dns), toggle **MagicDNS** and **HTTPS Certificates** on, then re-run `bash scripts/setup.sh` to issue the TLS cert. Use `curl -sk https://<tailscale-ip>:8443/healthz` to test by IP in the meantime. |
-| iOS can't reach collector | If using Funnel: check `tailscale funnel status` and use the Funnel hostname. If using Tailscale LAN: confirm both devices are connected and MagicDNS is enabled. |
+| iOS can't reach collector | If using Funnel: run `tailscale funnel --bg 8443`, then verify with `tailscale funnel status` (it must show an active config). If using Tailscale LAN: confirm both devices are connected and MagicDNS is enabled. |
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
 

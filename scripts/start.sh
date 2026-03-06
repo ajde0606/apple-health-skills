@@ -104,9 +104,10 @@ elif [ -n "$TS_IP" ]; then
     fi
     echo ""
     echo "  Optional: expose publicly so iPhone does NOT need Tailscale app:"
-    echo "    tailscale funnel 8443"
+    echo "    tailscale funnel --bg 8443"
     echo "    tailscale funnel status"
-    echo "    (then use https://<funnel-hostname>/qr on iPhone setup)"
+    echo "    (without --bg it exits with Ctrl+C and leaves no active config)"
+    echo "    (then use the Funnel https URL shown in command output for /qr)"
     echo ""
     echo "  QR code (open in browser on this Mac, then scan with iPhone):"
     if $TLS_OK; then
