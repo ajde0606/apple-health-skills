@@ -127,8 +127,8 @@ elif [ -n "$TS_IP" ]; then
     echo "    tailscale funnel status"
     echo "    (without --bg it exits with Ctrl+C and leaves no active config)"
     echo "    (if you get HTTP 502, disable collector TLS in .env for Funnel mode)"
-    echo "    (then use the Funnel https URL shown in command output for /qr)"
-    echo "    (do NOT append :8443 to Funnel hostname)"
+    echo "    (default Funnel URL is https://<host>/...)"
+    echo "    (if client insists on :8443, run: tailscale funnel --bg --https=8443 8443)"
     echo ""
     echo "  QR code (open in browser on this Mac, then scan with iPhone):"
     if $TLS_OK; then
