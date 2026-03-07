@@ -143,7 +143,9 @@ if [[ "$CONN_MODE" == "1" ]]; then
     echo "  Your token (set below) is the only auth gate; keep it secret."
     echo ""
     echo "  Enabling Funnel on port $FUNNEL_PORT..."
-    _FUNNEL_ERR=$(tailscale funnel "$FUNNEL_PORT" 2>&1) && _FUNNEL_OK=true || _FUNNEL_OK=false
+    # --bg configures Funnel persistently and returns immediately (Tailscale 1.44+).
+    # Without --bg the command blocks in foreground mode until Ctrl+C.
+    _FUNNEL_ERR=$(tailscale funnel --bg "$FUNNEL_PORT" 2>&1) && _FUNNEL_OK=true || _FUNNEL_OK=false
     if $_FUNNEL_OK; then
         echo "✓ Funnel enabled → https://$TS_HOSTNAME  (port $FUNNEL_PORT locally)"
     else
