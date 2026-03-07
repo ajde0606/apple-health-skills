@@ -96,6 +96,13 @@ def healthz() -> dict[str, int | str]:
     return {"ok": "true", "ts": int(time.time())}
 
 
+@app.get("/ping")
+def ping(settings: Settings = Depends(auth)) -> dict[str, str]:
+    """Authenticated connectivity check. Returns 200 when the token is valid."""
+    log_event("ping ok")
+    return {"ok": "true"}
+
+
 @app.post("/ingest", response_model=IngestResult)
 def ingest(
     payload: IngestPayload,
