@@ -37,20 +37,28 @@ class Settings:
     tls_cert: str
     tls_key: str
     hostname: str  # canonical Tailscale hostname, e.g. my-mac.tail….ts.net:8443
+    funnel_mode: bool  # True → Tailscale Funnel handles TLS; server runs plain HTTP
+    port: int  # local listener port (8443 default, 8080 for Funnel mode)
 
 
 _tailscale_hostname_cache: str | None = None
 
 
-def _tailscale_hostname() -> str:
-    """Return '<hostname>:8443' from `tailscale status`, or '' on failure.
+def _tailscale_hostname(port: int | None = None) -> str:
+    """Return the Tailscale hostname from `tailscale status`, or '' on failure.
+
+    When *port* is provided and not 443, appends ':<port>' to the hostname so
+    the caller gets a ready-to-use host:port string.  In Funnel mode port is
+    443 (handled by Tailscale), so no port suffix is added.
 
     Successful lookups are cached for the lifetime of the process.
     Failures are *not* cached so a later request can retry.
     """
     global _tailscale_hostname_cache
     if _tailscale_hostname_cache:
-        return _tailscale_hostname_cache
+        # Re-format for the requested port on each call; cache stores bare name.
+        name = _tailscale_hostname_cache
+        return name if (port is None or port == 443) else f"{name}:{port}"
     try:
         out = subprocess.check_output(
             ["tailscale", "status", "--self", "--json"],
@@ -58,10 +66,12 @@ def _tailscale_hostname() -> str:
             timeout=3,
         )
         name = json.loads(out)["Self"]["DNSName"].rstrip(".")
-        _tailscale_hostname_cache = f"{name}:8443" if name else ""
+        if not name:
+            return ""
+        _tailscale_hostname_cache = name
     except Exception:
         return ""
-    return _tailscale_hostname_cache
+    return _tailscale_hostname_cache if (port is None or port == 443) else f"{_tailscale_hostname_cache}:{port}"
 
 
 def load_settings() -> Settings:
@@ -76,7 +86,16 @@ def load_settings() -> Settings:
     user_id = get("AHB_USER_ID", "")
     tls_cert = get("AHB_TLS_CERT", "")
     tls_key = get("AHB_TLS_KEY", "")
-    hostname = get("AHB_HOSTNAME", "") or _tailscale_hostname()
+    funnel_mode = get("AHB_FUNNEL_MODE", "false").lower() in ("1", "true", "yes")
+    # Funnel mode: Tailscale terminates TLS on port 443; server binds HTTP on
+    # AHB_PORT (default 8080).  Classic mode: server binds HTTPS on 8443.
+    default_port = "8080" if funnel_mode else "8443"
+    port = int(get("AHB_PORT", default_port))
+    # Hostname for QR code / URL construction.
+    # Funnel mode: bare hostname (no port — Tailscale serves on 443).
+    # Classic mode: hostname:port.
+    ts_port = 443 if funnel_mode else port
+    hostname = get("AHB_HOSTNAME", "") or _tailscale_hostname(port=ts_port)
     allowed_devices = {item.strip() for item in allowed.split(",") if item.strip()}
     return Settings(
         ingest_token=token,
@@ -86,4 +105,6 @@ def load_settings() -> Settings:
         tls_cert=tls_cert,
         tls_key=tls_key,
         hostname=hostname,
+        funnel_mode=funnel_mode,
+        port=port,
     )

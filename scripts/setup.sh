@@ -75,13 +75,26 @@ chmod 600 "$ENV_FILE"
 echo ""
 echo "✓ .env written to $ENV_FILE"
 
-# ── 6. TLS certificate (required for iOS App Transport Security) ───────────────
+# ── 6. HTTPS / connectivity mode ──────────────────────────────────────────────
 echo ""
-echo "─── HTTPS / TLS (required for iOS) ──────────────────────────────────────"
-echo "  iOS blocks all plain HTTP traffic (App Transport Security)."
-echo "  The easiest fix: let Tailscale issue a free, trusted certificate."
-echo "  This requires MagicDNS to be enabled in your Tailscale admin console."
+echo "─── HTTPS / Connectivity Mode ───────────────────────────────────────────"
 echo ""
+echo "  How will your iPhone reach this Mac?"
+echo ""
+echo "  [1] Tailscale Funnel  (RECOMMENDED)"
+echo "      → iPhone does NOT need Tailscale installed"
+echo "      → Works from any network; Tailscale provides free public HTTPS"
+echo "      → Requires Tailscale + MagicDNS on this Mac only"
+echo ""
+echo "  [2] Tailscale VPN  (classic)"
+echo "      → iPhone must have Tailscale installed and signed in"
+echo "      → Fully private; traffic stays inside your Tailscale network"
+echo "      → Requires MagicDNS + HTTPS Certificates enabled"
+echo ""
+read -rp "  Choose mode [1/2, default 1]: " CONN_MODE
+CONN_MODE="${CONN_MODE:-1}"
+
+# ── Detect Tailscale ──────────────────────────────────────────────────────────
 TS_HOSTNAME=""
 _TS_BLOCKED=""
 if ! command -v tailscale &>/dev/null; then
@@ -98,19 +111,77 @@ else
 fi
 
 if [ "$_TS_BLOCKED" = "not installed" ]; then
-    echo "  Tailscale is not installed."
+    echo ""
+    echo "  ERROR: Tailscale is not installed on this Mac."
     echo "  Download from https://tailscale.com/download, sign in, then re-run setup.sh."
-    echo "  Without HTTPS, iOS will block all connections."
+    exit 1
 elif [ "$_TS_BLOCKED" = "not running" ]; then
-    echo "  Tailscale is installed but not running."
-    echo "  Start it:  `sudo systemctl start tailscaled`"
-    echo "             or `sudo service tailscaled start`"
-    echo "             or `sudo tailscaled >/tmp/tailscaled.log 2>&1 &` (separate terminal)"
+    echo ""
+    echo "  ERROR: Tailscale is installed but not running."
+    echo "  Start it:  sudo tailscale up"
     echo "  Then re-run: bash scripts/setup.sh"
-    echo "  Without HTTPS, iOS will block all connections."
-elif [ -n "$TS_HOSTNAME" ]; then
-    echo "  Detected hostname: $TS_HOSTNAME"
-    read -rp "  Issue a free TLS certificate for this hostname now? [Y/n] " SETUP_TLS
+    exit 1
+elif [ -z "$TS_HOSTNAME" ]; then
+    echo ""
+    echo "  ERROR: Tailscale is running but no MagicDNS hostname was found."
+    echo "  Enable MagicDNS at https://login.tailscale.com/admin/dns"
+    echo "  then re-run: bash scripts/setup.sh"
+    exit 1
+fi
+
+echo ""
+echo "  Detected Tailscale hostname: $TS_HOSTNAME"
+
+if [[ "$CONN_MODE" == "1" ]]; then
+    # ── Funnel mode ────────────────────────────────────────────────────────────
+    FUNNEL_PORT=8080
+    echo ""
+    echo "─── Tailscale Funnel setup ───────────────────────────────────────────────"
+    echo "  Tailscale Funnel will expose this Mac publicly at:"
+    echo "    https://$TS_HOSTNAME"
+    echo "  The iPhone does NOT need Tailscale — it connects over the internet."
+    echo "  Your token (set below) is the only auth gate; keep it secret."
+    echo ""
+    echo "  Enabling Funnel on port $FUNNEL_PORT..."
+    # --bg configures Funnel persistently and returns immediately (Tailscale 1.44+).
+    # Without --bg the command blocks in foreground mode until Ctrl+C.
+    _FUNNEL_ERR=$(tailscale funnel --bg "$FUNNEL_PORT" 2>&1) && _FUNNEL_OK=true || _FUNNEL_OK=false
+    if $_FUNNEL_OK; then
+        echo "✓ Funnel enabled → https://$TS_HOSTNAME  (port $FUNNEL_PORT locally)"
+    else
+        echo ""
+        echo "  WARNING: 'tailscale funnel $FUNNEL_PORT' failed:"
+        echo "  $_FUNNEL_ERR"
+        echo ""
+        echo "  Common fixes:"
+        echo "    • Ensure MagicDNS is on at https://login.tailscale.com/admin/dns"
+        echo "    • Ensure Funnel is allowed for your Tailscale plan"
+        echo "    • Run manually:  tailscale funnel $FUNNEL_PORT"
+        echo ""
+        echo "  Continuing with .env configuration anyway..."
+    fi
+    cat >> "$ENV_FILE" <<ENVEOF
+
+AHB_FUNNEL_MODE=true
+AHB_PORT=$FUNNEL_PORT
+AHB_HOSTNAME=$TS_HOSTNAME
+ENVEOF
+    echo "✓ .env updated: AHB_FUNNEL_MODE=true, AHB_PORT=$FUNNEL_PORT"
+    echo ""
+    echo "  iPhone setup:"
+    echo "    Open https://$TS_HOSTNAME/qr in a browser on this Mac"
+    echo "    and scan the QR code with the IOS Health Bridge app."
+    echo "    No Tailscale needed on the iPhone."
+
+else
+    # ── Classic VPN mode: issue TLS cert ──────────────────────────────────────
+    echo ""
+    echo "─── HTTPS / TLS (required for iOS) ──────────────────────────────────────"
+    echo "  iOS blocks all plain HTTP traffic (App Transport Security)."
+    echo "  Tailscale can issue a free, trusted certificate for your hostname."
+    echo "  Requires MagicDNS + HTTPS Certificates in your Tailscale admin console."
+    echo ""
+    read -rp "  Issue a free TLS certificate for $TS_HOSTNAME now? [Y/n] " SETUP_TLS
     if [[ "${SETUP_TLS:-y}" =~ ^[Yy] ]]; then
         CERT_DIR="$REPO_ROOT/certs"
         mkdir -p "$CERT_DIR"
@@ -147,11 +218,6 @@ ENVEOF
         echo "  Skipped. Add AHB_TLS_CERT and AHB_TLS_KEY to .env when ready."
         echo "  Without HTTPS, iOS will block all connections."
     fi
-else
-    echo "  Tailscale is running but no MagicDNS hostname was found."
-    echo "  Enable MagicDNS at https://login.tailscale.com/admin/dns"
-    echo "  then re-run: bash scripts/setup.sh"
-    echo "  Without HTTPS, iOS will block all connections."
 fi
 echo ""
 echo "─── Start the collector ─────────────────────────────────────────────────"

@@ -66,12 +66,17 @@ def qr_code(request: Request, settings: Settings = Depends(get_settings)) -> Res
             "<p>Add <code>AHB_USER_ID=yourname</code> to your <code>.env</code> file and restart the collector.</p>",
             status_code=400,
         )
-    scheme = "https" if (settings.tls_cert and settings.tls_key) else "http"
+    if settings.funnel_mode:
+        # Tailscale Funnel always serves HTTPS on port 443; the public host
+        # has no port suffix.
+        scheme = "https"
+    else:
+        scheme = "https" if (settings.tls_cert and settings.tls_key) else "http"
     # Prefer the canonical Tailscale hostname stored in AHB_HOSTNAME so the QR
     # payload always contains the hostname (not the IP), even when the browser
     # reached this page via the Tailscale IP address.  Fall back to the Host
     # header only when AHB_HOSTNAME is not configured.
-    host = settings.hostname or request.headers.get("host", "localhost:8443")
+    host = settings.hostname or request.headers.get("host", f"localhost:{settings.port}")
     payload = "ahb://configure?" + urlencode({
         "host": host,
         "scheme": scheme,
