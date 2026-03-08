@@ -50,3 +50,12 @@ CREATE TABLE IF NOT EXISTS live_events (
 CREATE INDEX IF NOT EXISTS idx_quantity_user_type_ts ON quantity_samples(user_id, type, ts);
 CREATE INDEX IF NOT EXISTS idx_category_user_type_start ON category_samples(user_id, type, start_ts);
 CREATE INDEX IF NOT EXISTS idx_live_events_session_seq ON live_events(session_id, seq);
+
+-- Tracks the last successfully synced date per (user, data_type) for the Oura collector.
+CREATE TABLE IF NOT EXISTS oura_sync_state (
+    user_id   TEXT NOT NULL,
+    data_type TEXT NOT NULL,
+    last_date TEXT NOT NULL,       -- ISO-8601 date: YYYY-MM-DD
+    updated_at INTEGER NOT NULL,   -- Unix timestamp
+    PRIMARY KEY (user_id, data_type)
+);
