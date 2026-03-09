@@ -102,16 +102,14 @@ def fetch_sleeps(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return results
 
 
-def fetch_workouts(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Fetch workout records for a list of cycles.
-
-    Workouts are sub-resources of cycles: GET /v1/cycle/{cycleId}/workout
-    A cycle can contain multiple workouts (paginated list).
-    """
-    results = []
-    for cycle in cycles:
-        results.extend(_paginate(f"/cycle/{cycle['id']}/workout"))
-    return results
+def fetch_workouts(start: str | None = None, end: str | None = None) -> list[dict[str, Any]]:
+    """Fetch workouts from the collection endpoint GET /v1/activity/workout."""
+    params: dict[str, Any] = {}
+    if start:
+        params["start"] = start
+    if end:
+        params["end"] = end
+    return list(_paginate("/activity/workout", params))
 
 
 def fetch_profile() -> dict[str, Any]:
