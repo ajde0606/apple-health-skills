@@ -4,3 +4,4 @@ uvicorn>=0.27
 pytest>=8.0
 qrcode[pil]>=7.4
 requests>=2.31
+requests-oauthlib>=1.3

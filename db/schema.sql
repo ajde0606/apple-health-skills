@@ -118,3 +118,67 @@ CREATE INDEX IF NOT EXISTS idx_whoop_cycles_user_ts ON whoop_cycles(user_id, sta
 CREATE INDEX IF NOT EXISTS idx_whoop_recoveries_user_ts ON whoop_recoveries(user_id, ts);
 CREATE INDEX IF NOT EXISTS idx_whoop_sleeps_user_ts ON whoop_sleeps(user_id, start_ts);
 CREATE INDEX IF NOT EXISTS idx_whoop_workouts_user_ts ON whoop_workouts(user_id, start_ts);
+
+-- ─── Garmin tables ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS garmin_daily_summaries (
+    summary_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    calendar_date TEXT NOT NULL,
+    start_ts INTEGER,
+    steps INTEGER,
+    distance_meters REAL,
+    active_seconds INTEGER,
+    active_kilocalories INTEGER,
+    bmr_kilocalories INTEGER,
+    avg_stress_level INTEGER,
+    max_stress_level INTEGER,
+    avg_heart_rate INTEGER,
+    resting_heart_rate INTEGER,
+    min_heart_rate INTEGER,
+    max_heart_rate INTEGER,
+    body_battery_charged INTEGER,
+    body_battery_drained INTEGER,
+    moderate_intensity_seconds INTEGER,
+    vigorous_intensity_seconds INTEGER,
+    floors_climbed INTEGER,
+    avg_spo2 REAL,
+    avg_respiration_rate REAL,
+    synced_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS garmin_sleeps (
+    summary_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    calendar_date TEXT NOT NULL,
+    start_ts INTEGER,
+    duration_seconds INTEGER,
+    deep_sleep_seconds INTEGER,
+    light_sleep_seconds INTEGER,
+    rem_sleep_seconds INTEGER,
+    awake_seconds INTEGER,
+    avg_spo2 REAL,
+    avg_respiration_rate REAL,
+    resting_heart_rate INTEGER,
+    synced_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS garmin_activities (
+    summary_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    start_ts INTEGER NOT NULL,
+    activity_type TEXT,
+    duration_seconds INTEGER,
+    distance_meters REAL,
+    avg_heart_rate INTEGER,
+    max_heart_rate INTEGER,
+    active_kilocalories INTEGER,
+    avg_speed REAL,
+    avg_pace_min_per_km REAL,
+    elevation_gain_meters REAL,
+    synced_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_garmin_daily_user_date ON garmin_daily_summaries(user_id, calendar_date);
+CREATE INDEX IF NOT EXISTS idx_garmin_sleeps_user_date ON garmin_sleeps(user_id, calendar_date);
+CREATE INDEX IF NOT EXISTS idx_garmin_activities_user_ts ON garmin_activities(user_id, start_ts);
