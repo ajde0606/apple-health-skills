@@ -1,58 +1,55 @@
-# Apple Health Skill
+# Apple Health Skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-blue)
 ![Version](https://img.shields.io/badge/version-v1.0.0-orange)
 
-Stream your iPhone’s Apple Health data — or your **Whoop** wearable data — to
-your Mac in real time, **with no cloud services or external servers**.
+This repo is an **OpenClaw skill** for live health monitoring. It gives your
+OpenClaw agent access to your personal health data so you can build a
+**private personal trainer** that knows your body, remembers your history, and
+is available whenever you need it — powered entirely by your own data.
 
-Two health data sources are supported:
+Everything runs locally on your Mac. No cloud services, no shared servers, no
+accounts beyond what you already have.
 
-- **Apple Health / HealthKit** — synced from your iPhone via the IOS Health Bridge app
-- **Whoop** — pulled directly from the Whoop Developer API using OAuth2
+**Supported data sources:**
 
-An AI agent (OpenClaw) can then analyze trends, detect patterns, and provide
-proactive health insights from either source — or both together.
-
-The recommended Apple Health transport is **Tailscale Funnel**: your Mac exposes
-a secure public HTTPS endpoint so the iPhone can reach it from any network.
-A classic Tailscale VPN mode is also supported.
-
-You can also capture **live heart-rate data from a Wahoo strap during workouts**.
-
-```
-iPhone ──HealthKit──► IOS Health Bridge app
-                              │  (HTTPS — public internet via Tailscale Funnel)
-                              ▼
-                     Mac collector (FastAPI)  ← token auth required
-                              │
-                              ├──────────────────────────────────┐
-                              ▼                                  ▼
-                       SQLite (local only)          Whoop Developer API
-                              │                  (OAuth2, pulled by sync script)
-                              ▼
-               OpenClaw agent  →  alerts & advice
-```
+| Source | What it provides |
+|--------|-----------------|
+| **Apple Health** (Apple Watch / iPhone) | Heart rate, sleep, activity, blood glucose, and all other HealthKit types — synced over your local network |
+| **Wahoo HR strap** (or any BLE HR strap) | Live heart-rate streaming during workouts, second by second |
+| **Whoop** | Recovery score, HRV, resting HR, sleep performance, strain, and workout zones — pulled from the Whoop Developer API |
 
 ---
 
-## Who is this for?
+## Contents
 
-Anyone who wants **private, AI-assisted health monitoring** on their own
-machine.
-
-There are:
-
-- no shared servers  
-- no accounts to create  
-- no cloud services  
-
-Everything runs **locally on your Mac**.
+1. [Apple Health setup](#apple-health-setup)
+   - [Step 1 — iPhone](#step-1--iphone)
+   - [Step 2 — Mac](#step-2--mac)
+   - [Step 3 — Connect the iOS app](#step-3--connect-the-ios-app)
+2. [Whoop setup](#whoop-setup)
+3. [Talk to OpenClaw](#talk-to-openclaw)
+4. [Operations toolkit](#operations-toolkit)
+5. [Troubleshooting](#troubleshooting)
+6. [Environment variables](#environment-variables)
 
 ---
 
-## Step 1 — iPhone setup
+## Apple Health setup
+
+Apple Health data is collected by a lightweight FastAPI server running on your
+Mac. Your iPhone pushes HealthKit samples to it over HTTPS using the
+**IOS Health Bridge** app.
+
+Two network modes are supported:
+
+| Mode | How it works |
+|------|-------------|
+| **Tailscale Funnel** (default) | Your Mac gets a public HTTPS endpoint — no Tailscale on the iPhone needed |
+| **Tailscale VPN** | Classic VPN; iPhone must have Tailscale installed |
+
+### Step 1 — iPhone
 
 Install from the App Store:
 
@@ -60,24 +57,20 @@ Install from the App Store:
 |-----|---------|
 | **IOS Health Bridge** | Reads HealthKit and uploads to your Mac |
 
-Optional for live workout heart-rate streaming:
+For live workout heart-rate streaming:
 
 | App / Device | Purpose |
-|-----|---------|
-| **Wahoo heart-rate sensor** (or compatible BLE HR strap) | Streams live heart rate to IOS Health Bridge |
+|-------------|---------|
+| **Wahoo HR sensor** (or compatible BLE HR strap) | Streams live heart rate to IOS Health Bridge |
 
-> **Tailscale is not required on the iPhone** when using Funnel mode (the
-> default).  The iPhone connects to your Mac over the public internet using a
-> secure HTTPS URL that Tailscale Funnel provides.  Only install Tailscale on
-> the iPhone if you specifically choose the classic VPN mode during `setup.sh`.
+> **Tailscale is not required on the iPhone** in Funnel mode (the default).
+> The iPhone connects to your Mac over the public internet via a secure HTTPS
+> URL that Tailscale Funnel provides. Only install Tailscale on the iPhone if
+> you specifically choose classic VPN mode during `setup.sh`.
 
----
+### Step 2 — Mac
 
-## Step 2 — Mac setup
-
-### 2.1 Install Tailscale on Mac
-
-Tailscale is only required on the **Mac**, not on the iPhone.
+#### 2.1 Install Tailscale on Mac
 
 Option A — App Store / download:
 - Install from [tailscale.com/download](https://tailscale.com/download)
@@ -96,10 +89,9 @@ sudo tailscale up
 > 2. Toggle **MagicDNS** on
 
 Funnel mode does not need HTTPS Certificates (Tailscale handles TLS at the
-edge).  Classic VPN mode additionally requires HTTPS Certificates to be
-enabled.
+edge). Classic VPN mode additionally requires HTTPS Certificates to be enabled.
 
-### 2.2 Clone and run setup
+#### 2.2 Clone and run setup
 
 ```bash
 git clone https://github.com/your-org/apple-health-skills.git
@@ -137,7 +129,7 @@ AHB_PORT=8080
 AHB_HOSTNAME=<your-mac>.tail1234.ts.net   # no port — Funnel serves on 443
 ```
 
-### 2.3 Start the collector
+#### 2.3 Start the collector
 
 ```bash
 bash scripts/start.sh
@@ -154,7 +146,7 @@ Funnel proxies `https://<your-mac>.ts.net` → `localhost:8080`.
 
 **VPN mode:** collector listens on `0.0.0.0:8443` (HTTPS).
 
-### 2.4 Verify
+#### 2.4 Verify
 
 **Funnel mode** (test from any device — no Tailscale needed):
 
@@ -173,13 +165,11 @@ curl -sk https://127.0.0.1:8443/healthz
 curl -s https://<tailscale-hostname>:8443/healthz
 ```
 
----
+### Step 3 — Connect the iOS app
 
-## Step 3 — Connect the iOS app
+#### 3.1 Scan the QR code (recommended)
 
-### 3.1 Scan the QR code (recommended)
-
-**Funnel mode** — open the QR page on your Mac (the server only accepts local connections):
+**Funnel mode** — open the QR page on your Mac (only accepts local connections):
 
 ```
 http://127.0.0.1:8080/qr
@@ -200,57 +190,56 @@ Then:
 > In VPN mode, `AHB_TLS_CERT`/`AHB_TLS_KEY` must be set; otherwise iOS rejects
 > the connection with an App Transport Security error (-1022).
 
-### 3.2 Sync
+> **Manual setup (fallback):** If you can't use the QR code, tap the gear icon
+> and fill in the fields under *Manual Override*: User ID, Collector Host, and
+> Auth Token.
+
+#### 3.2 Sync
 
 1. Tap **Authorize HealthKit** and grant read permissions.
 2. Tap **Bootstrap Sync (Last 14 Days)** for the initial upload.
 3. Tap **Incremental Sync** any time after that.
 4. Leave the app installed and backgrounded to receive HealthKit observer updates.
-   The app now registers background delivery for heart rate, blood glucose, and sleep.
+   The app registers background delivery for heart rate, blood glucose, and sleep.
 
-> Background delivery is best-effort on iOS and may arrive minutes to hours later.
-> If you force-quit the app from the app switcher, iOS can suppress background
-> observer execution until you open the app again.
->
-> **Manual setup (fallback):** If you can't use the QR code, tap the gear icon
-> and fill in the fields under *Manual Override*: User ID, Collector Host, and
-> Auth Token.
+> Background delivery is best-effort on iOS and may arrive minutes to hours
+> later. If you force-quit the app from the app switcher, iOS can suppress
+> background observer execution until you open the app again.
 
-The app home screen now includes a **Sync Logs** panel with timestamped sync events
-(authorization, background triggers, queued retries, and upload outcomes).
-When running `bash scripts/start.sh`, the collector also prints timestamped events
-for startup, `/healthz`, `/qr`, and `/ingest` requests.
+The app home screen includes a **Sync Logs** panel with timestamped sync
+events (authorization, background triggers, queued retries, and upload
+outcomes). When running `bash scripts/start.sh`, the collector also prints
+timestamped events for startup, `/healthz`, `/qr`, and `/ingest` requests.
 
-### 3.4 Enable background refresh
+#### 3.3 Enable background refresh
 
-On iPhone, allow background app refresh for **IOS Health Bridge** so background
-sync delivery can run reliably.
+On iPhone, allow background app refresh for **IOS Health Bridge** so
+background sync delivery can run reliably.
 
 ---
 
-## Whoop integration
+## Whoop setup
 
 Whoop data is pulled **directly from the Whoop Developer API** — no iOS app or
-Tailscale required.  Data is stored in the same local SQLite database alongside
+Tailscale required. Data is stored in the same local SQLite database alongside
 Apple Health data.
 
-### Whoop Step 1 — Create a developer app
+### Step 1 — Create a developer app
 
 1. Go to [developer.whoop.com](https://developer.whoop.com) and sign in.
-2. Create a new app.  Set the redirect URI to `http://localhost:8900/callback`.
-3. For the Privacy Policy URL, your GitHub repo URL (e.g.
-   `https://github.com/your-org/apple-health-skills`) is sufficient for a
+2. Create a new app. Set the redirect URI to `http://localhost:8900/callback`.
+3. For the Privacy Policy URL, your GitHub repo URL is sufficient for a
    personal app.
 4. Copy your **Client ID** and **Client Secret**.
 
-### Whoop Step 2 — Add credentials to `.env`
+### Step 2 — Add credentials to `.env`
 
 ```
 WHOOP_CLIENT_ID=<your-client-id>
 WHOOP_CLIENT_SECRET=<your-client-secret>
 ```
 
-### Whoop Step 3 — Authorize
+### Step 3 — Authorize
 
 ```bash
 python scripts/setup_whoop.py
@@ -259,7 +248,7 @@ python scripts/setup_whoop.py
 This opens your browser, walks through the OAuth2 flow, and saves tokens to
 `whoop_tokens.json` (git-ignored).
 
-### Whoop Step 4 — Sync data
+### Step 4 — Sync data
 
 ```bash
 # Pull the last 30 days for an initial backfill
@@ -275,14 +264,7 @@ Run this on a schedule (cron or launchd) to keep data fresh:
 
 Tokens are refreshed automatically on every sync run.
 
-### Whoop environment variables (`.env`)
-
-| Variable | Description |
-|----------|-------------|
-| `WHOOP_CLIENT_ID` | OAuth2 client ID from developer.whoop.com |
-| `WHOOP_CLIENT_SECRET` | OAuth2 client secret |
-
-### Whoop data stored
+### Data stored
 
 | Table | Contents |
 |-------|----------|
@@ -293,15 +275,16 @@ Tokens are refreshed automatically on every sync run.
 
 ---
 
-## Step 4 — Talk to OpenClaw
+## Talk to OpenClaw
 
-Open OpenClaw, and ask your agent to use the skills apple-health-skills. Then you can ask questions about your health data
+Open OpenClaw and ask your agent to use the **apple-health-skills** skill. Then
+ask anything about your health data.
 
 Example prompts — Apple Health:
 
 - *"What's my heart rate trend over the last 24 hours?"*
 - *"How was my sleep last night? Any patterns worth watching?"*
-- *"Alert me if my heart rate goes above 130 bpm — check every 10 secs."*
+- *"Alert me if my heart rate goes above 130 bpm — check every 10 seconds."*
 
 Example prompts — Whoop:
 
@@ -310,7 +293,7 @@ Example prompts — Whoop:
 - *"Summarize last night's sleep from Whoop."*
 - *"What was my strain like during yesterday's workout?"*
 
-When needed, OpenClaw can run:
+When needed, OpenClaw runs these queries automatically:
 
 ```bash
 # Apple Health
@@ -320,13 +303,13 @@ python scripts/query_health.py --window-hours 24 --sleep-nights 7
 python scripts/query_whoop.py --window-days 7
 ```
 
-You can also run those query commands manually at any time.
+You can also run them manually at any time.
 
 ---
 
 ## Operations toolkit
 
-### 1. Install collector as a LaunchAgent
+### Install collector as a LaunchAgent
 
 ```bash
 bash scripts/install_launch_agent.sh
@@ -340,7 +323,7 @@ To stop and unload the service later:
 bash scripts/stop.sh
 ```
 
-### 2. Admin CLI commands
+### Admin CLI
 
 ```bash
 # Rotate ingest token and update .env
@@ -356,31 +339,12 @@ python scripts/admin_cli.py export-json --days 7 --output exports/health_export_
 python scripts/admin_cli.py purge --days 90
 ```
 
-`rotate-token` behavior:
-- Generates a new random ingest token.
-- Updates `AHB_INGEST_TOKEN` in your `.env` file.
-- Prints the new token in JSON output.
-- Existing iOS app installs will keep using the old token until you update the app settings (or rescan QR).
-- Restart the collector after rotating so it definitely picks up the new token.
-
-`last-sync` behavior:
-- Reads `ingest_batches` and reports the most recent batch (`batch_id`, `device_id`, `user_id`, `received_at`).
-- Prints `latest_sync_iso` as a human-readable UTC timestamp.
-- Includes current total row counts for `quantity_samples` and `category_samples`.
-
-`export-json` behavior:
-- Exports a time-windowed snapshot (default: last 7 days) to a JSON file.
-- Includes three sections: `quantity_samples`, `category_samples`, and `ingest_batches`.
-- Creates the output directory automatically if it does not exist.
-- Useful for debugging ingest issues without direct SQLite inspection.
-
-`purge` behavior:
-- Applies retention by deleting rows older than `--days` from:
-  - `quantity_samples` (by `ts`)
-  - `category_samples` (by `end_ts`)
-  - `ingest_batches` (by `received_at`)
-- Prints a JSON summary of how many rows were deleted per table.
-- This is destructive; keep a backup/export first if you may need historical data.
+| Command | What it does |
+|---------|-------------|
+| `rotate-token` | Generates a new random ingest token, updates `.env`. Existing iOS installs use the old token until you rescan the QR code. Restart the collector after rotating. |
+| `last-sync` | Reports the most recent ingest batch (`batch_id`, `device_id`, `received_at`) and current row counts for `quantity_samples` and `category_samples`. |
+| `export-json` | Exports a time-windowed snapshot to JSON with `quantity_samples`, `category_samples`, and `ingest_batches` sections. Creates the output directory automatically. |
+| `purge` | Deletes rows older than `--days` from `quantity_samples`, `category_samples`, and `ingest_batches`. Destructive — export first if you need the history. |
 
 ---
 
@@ -402,7 +366,9 @@ python scripts/admin_cli.py purge --days 90
 | No data in query | Check `--user-id` matches `AHB_USER_ID`; confirm sync completed |
 | Empty health data | Grant HealthKit permissions; Health app must have data for selected types |
 
-## Environment variables (`.env`)
+---
+
+## Environment variables
 
 ### Apple Health collector
 
