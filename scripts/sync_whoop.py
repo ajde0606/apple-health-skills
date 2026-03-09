@@ -48,6 +48,31 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     schema_path = _repo_root / "db" / "schema.sql"
     conn.executescript(schema_path.read_text())
     conn.commit()
+    _migrate_text_ids(conn)
+
+
+def _migrate_text_ids(conn: sqlite3.Connection) -> None:
+    """Recreate whoop_sleeps/whoop_workouts if their id column is INTEGER.
+
+    The Whoop v2 API returns UUID strings for sleep/workout IDs.  Old DBs
+    created before this migration have id INTEGER PRIMARY KEY, which rejects
+    UUID strings with 'datatype mismatch'.  Since those tables were always
+    empty (all requests 404'd under the old code), dropping them is safe.
+    """
+    for table in ("whoop_sleeps", "whoop_workouts"):
+        rows = conn.execute(
+            f"PRAGMA table_info({table})"  # noqa: S608
+        ).fetchall()
+        if not rows:
+            continue  # table doesn't exist yet
+        id_col = next((r for r in rows if r[1] == "id"), None)
+        if id_col and id_col[2].upper() == "INTEGER":
+            conn.execute(f"DROP TABLE {table}")
+    conn.commit()
+    # Re-run CREATE TABLE IF NOT EXISTS now that old tables are gone.
+    schema_path = _repo_root / "db" / "schema.sql"
+    conn.executescript(schema_path.read_text())
+    conn.commit()
 
 
 def parse_args() -> argparse.Namespace:
