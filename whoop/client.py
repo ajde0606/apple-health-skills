@@ -102,14 +102,31 @@ def fetch_sleeps(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return results
 
 
-def fetch_workouts(start: str | None = None, end: str | None = None) -> list[dict[str, Any]]:
-    """Fetch workouts from the collection endpoint GET /v1/activity/workout."""
-    params: dict[str, Any] = {}
-    if start:
-        params["start"] = start
-    if end:
-        params["end"] = end
-    return list(_paginate("/activity/workout", params))
+def fetch_workouts(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fetch workout records for a list of cycles.
+
+    Workouts are sub-resources of cycles: GET /v1/cycle/{cycleId}/workout
+    Returns a plain list (not paginated), so _get is used directly.
+    404 means no workout recorded for that cycle.
+    """
+    results = []
+    for cycle in cycles:
+        try:
+            data = _get(f"/cycle/{cycle['id']}/workout")
+            # Response may be a single object or a list wrapped under a key.
+            if isinstance(data, list):
+                results.extend(data)
+            elif isinstance(data, dict):
+                records = data.get("records") or data.get("workouts")
+                if records is not None:
+                    results.extend(records)
+                else:
+                    results.append(data)
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                continue
+            raise
+    return results
 
 
 def fetch_profile() -> dict[str, Any]:

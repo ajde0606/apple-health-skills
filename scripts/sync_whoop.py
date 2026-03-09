@@ -107,8 +107,8 @@ def main() -> None:
         ins, skp = whoop_db.upsert_sleeps(conn, args.user_id, sleeps)
         print(f"{len(sleeps)} fetched, {ins} inserted, {skp} skipped")
 
-        print("  Fetching workouts…", end=" ", flush=True)
-        workouts = whoop_client.fetch_workouts(start=start_iso, end=end_iso)
+        print(f"  Fetching workouts (1 request per cycle × {len(cycles)})…", end=" ", flush=True)
+        workouts = whoop_client.fetch_workouts(cycles)
         ins, skp = whoop_db.upsert_workouts(conn, args.user_id, workouts)
         print(f"{len(workouts)} fetched, {ins} inserted, {skp} skipped")
 
