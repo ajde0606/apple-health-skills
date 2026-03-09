@@ -98,7 +98,7 @@ def upsert_sleeps(conn: sqlite3.Connection, user_id: str, sleeps: list[dict[str,
             ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
-                int(sleep["id"]),
+                str(sleep["id"]),
                 user_id,
                 start_ts,
                 end_ts,
@@ -140,7 +140,7 @@ def upsert_workouts(conn: sqlite3.Connection, user_id: str, workouts: list[dict[
             ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
-                int(workout["id"]),
+                str(workout["id"]),
                 user_id,
                 start_ts,
                 end_ts,

@@ -77,8 +77,9 @@ CREATE TABLE IF NOT EXISTS whoop_recoveries (
     synced_at INTEGER NOT NULL
 );
 
+-- id is a UUID string in API v2
 CREATE TABLE IF NOT EXISTS whoop_sleeps (
-    id INTEGER PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     start_ts INTEGER NOT NULL,
     end_ts INTEGER NOT NULL,
@@ -93,8 +94,9 @@ CREATE TABLE IF NOT EXISTS whoop_sleeps (
     synced_at INTEGER NOT NULL
 );
 
+-- id is a UUID string in API v2
 CREATE TABLE IF NOT EXISTS whoop_workouts (
-    id INTEGER PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     start_ts INTEGER NOT NULL,
     end_ts INTEGER NOT NULL,
