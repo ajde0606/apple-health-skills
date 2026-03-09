@@ -57,13 +57,32 @@ def fetch_cycles(start: str | None = None, end: str | None = None) -> list[dict[
     return list(_paginate("/cycle", params))
 
 
-def fetch_recoveries(start: str | None = None, end: str | None = None) -> list[dict[str, Any]]:
-    params: dict[str, Any] = {}
-    if start:
-        params["start"] = start
-    if end:
-        params["end"] = end
-    return list(_paginate("/recovery", params))
+def fetch_recovery_for_cycle(cycle_id: int) -> dict[str, Any] | None:
+    """Fetch the recovery record for a single cycle.
+
+    Returns None when the cycle has no recovery score yet (Whoop returns 404).
+    Recovery is a sub-resource of cycles: GET /v1/cycle/{cycleId}/recovery
+    """
+    try:
+        return _get(f"/cycle/{cycle_id}/recovery")
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 404:
+            return None
+        raise
+
+
+def fetch_recoveries(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fetch recovery records for a list of cycles.
+
+    Whoop does not expose a collection endpoint for recovery; each record must
+    be fetched individually via /v1/cycle/{cycleId}/recovery.
+    """
+    results = []
+    for cycle in cycles:
+        rec = fetch_recovery_for_cycle(int(cycle["id"]))
+        if rec is not None:
+            results.append(rec)
+    return results
 
 
 def fetch_sleeps(start: str | None = None, end: str | None = None) -> list[dict[str, Any]]:

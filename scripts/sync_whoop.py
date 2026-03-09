@@ -97,8 +97,8 @@ def main() -> None:
         ins, skp = whoop_db.upsert_cycles(conn, args.user_id, cycles)
         print(f"{len(cycles)} fetched, {ins} inserted, {skp} skipped")
 
-        print("  Fetching recoveries…", end=" ", flush=True)
-        recoveries = whoop_client.fetch_recoveries(start=start_iso, end=end_iso)
+        print(f"  Fetching recoveries (1 request per cycle × {len(cycles)})…", end=" ", flush=True)
+        recoveries = whoop_client.fetch_recoveries(cycles)
         ins, skp = whoop_db.upsert_recoveries(conn, args.user_id, recoveries)
         print(f"{len(recoveries)} fetched, {ins} inserted, {skp} skipped")
 
