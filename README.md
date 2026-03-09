@@ -91,11 +91,24 @@ sudo tailscale up
 Funnel mode does not need HTTPS Certificates (Tailscale handles TLS at the
 edge). Classic VPN mode additionally requires HTTPS Certificates to be enabled.
 
-#### 2.2 Clone and run setup
+#### 2.2 Clone, set up environment, and run setup
 
 ```bash
 git clone https://github.com/your-org/apple-health-skills.git
 cd apple-health-skills
+```
+
+Create and activate a virtual environment, then install dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Then run the interactive setup script:
+
+```bash
 bash scripts/setup.sh
 ```
 
@@ -224,7 +237,24 @@ Whoop data is pulled **directly from the Whoop Developer API** — no iOS app or
 Tailscale required. Data is stored in the same local SQLite database alongside
 Apple Health data.
 
-### Step 1 — Create a developer app
+### Step 1 — Clone and set up environment
+
+If you haven't cloned the repo yet:
+
+```bash
+git clone https://github.com/your-org/apple-health-skills.git
+cd apple-health-skills
+```
+
+Create and activate a virtual environment, then install dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Step 2 — Create a developer app
 
 1. Go to [developer.whoop.com](https://developer.whoop.com) and sign in.
 2. Create a new app. Set the redirect URI to `http://localhost:8900/callback`.
@@ -232,14 +262,14 @@ Apple Health data.
    personal app.
 4. Copy your **Client ID** and **Client Secret**.
 
-### Step 2 — Add credentials to `.env`
+### Step 3 — Add credentials to `.env`
 
 ```
 WHOOP_CLIENT_ID=<your-client-id>
 WHOOP_CLIENT_SECRET=<your-client-secret>
 ```
 
-### Step 3 — Authorize
+### Step 4 — Authorize
 
 ```bash
 python scripts/setup_whoop.py
@@ -248,7 +278,7 @@ python scripts/setup_whoop.py
 This opens your browser, walks through the OAuth2 flow, and saves tokens to
 `whoop_tokens.json` (git-ignored).
 
-### Step 4 — Sync data
+### Step 5 — Sync data
 
 ```bash
 # Pull the last 30 days for an initial backfill
