@@ -71,6 +71,17 @@ def fetch_recovery_for_cycle(cycle_id: int) -> dict[str, Any] | None:
         raise
 
 
+_DEBUG_PRINTED: set[str] = set()
+
+
+def _debug_404(label: str, url: str, exc: requests.HTTPError) -> None:
+    """Print the response body for the first 404 of each endpoint type."""
+    if label not in _DEBUG_PRINTED:
+        _DEBUG_PRINTED.add(label)
+        body = exc.response.text if exc.response is not None else "(no response)"
+        print(f"\n  [debug] First {label} 404 → {url}\n  body: {body[:300]}", flush=True)
+
+
 def _warn_if_scope_issue(kind: str, not_found: int, total: int) -> None:
     """Print a warning when most/all cycles return 404 for a data type.
 
@@ -87,15 +98,24 @@ def _warn_if_scope_issue(kind: str, not_found: int, total: int) -> None:
 
 
 def fetch_recoveries(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Fetch recovery records for a list of cycles via /v1/cycle/{cycleId}/recovery."""
+    """Fetch recovery records for a list of cycles via /v1/cycle/{cycleId}/recovery.
+
+    Also prints the first cycle id so the constructed path is visible in debug output.
+    """
+    if cycles:
+        print(f"\n  [debug] First cycle id={cycles[0]['id']} → will call {BASE_URL}/cycle/{cycles[0]['id']}/recovery", flush=True)
     results: list[dict[str, Any]] = []
     not_found = 0
     for cycle in cycles:
-        rec = fetch_recovery_for_cycle(int(cycle["id"]))
-        if rec is not None:
-            results.append(rec)
-        else:
-            not_found += 1
+        path = f"/cycle/{cycle['id']}/recovery"
+        try:
+            results.append(_get(path))
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                _debug_404("recovery", f"{BASE_URL}{path}", exc)
+                not_found += 1
+                continue
+            raise
     _warn_if_scope_issue("recovery", not_found, len(cycles))
     return results
 
@@ -105,10 +125,12 @@ def fetch_sleeps(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     not_found = 0
     for cycle in cycles:
+        path = f"/cycle/{cycle['id']}/sleep"
         try:
-            results.append(_get(f"/cycle/{cycle['id']}/sleep"))
+            results.append(_get(path))
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
+                _debug_404("sleep", f"{BASE_URL}{path}", exc)
                 not_found += 1
                 continue
             raise
@@ -121,8 +143,9 @@ def fetch_workouts(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     not_found = 0
     for cycle in cycles:
+        path = f"/cycle/{cycle['id']}/workout"
         try:
-            data = _get(f"/cycle/{cycle['id']}/workout")
+            data = _get(path)
             if isinstance(data, list):
                 results.extend(data)
             elif isinstance(data, dict):
@@ -133,6 +156,7 @@ def fetch_workouts(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     results.append(data)
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
+                _debug_404("workout", f"{BASE_URL}{path}", exc)
                 not_found += 1
                 continue
             raise
