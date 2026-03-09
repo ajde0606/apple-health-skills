@@ -4,18 +4,20 @@
 ![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-blue)
 ![Version](https://img.shields.io/badge/version-v1.0.0-orange)
 
-Stream your iPhone’s Apple Health data to your Mac in real time — **no
-Tailscale required on the iPhone**.
+Stream your iPhone’s Apple Health data — or your **Whoop** wearable data — to
+your Mac in real time, **with no cloud services or external servers**.
 
-Apple Health Bridge syncs health metrics from **Apple Health / HealthKit** to a
-local Mac server, where an AI agent (OpenClaw) can analyze trends, detect
-patterns, and provide proactive health insights — **all locally, with no cloud
-services or external servers.**
+Two health data sources are supported:
 
-The recommended transport is **Tailscale Funnel**: your Mac exposes a secure
-public HTTPS endpoint so the iPhone can reach it from any network, with token
-auth protecting the API.  A classic Tailscale VPN mode is also supported for
-users who prefer fully private routing.
+- **Apple Health / HealthKit** — synced from your iPhone via the IOS Health Bridge app
+- **Whoop** — pulled directly from the Whoop Developer API using OAuth2
+
+An AI agent (OpenClaw) can then analyze trends, detect patterns, and provide
+proactive health insights from either source — or both together.
+
+The recommended Apple Health transport is **Tailscale Funnel**: your Mac exposes
+a secure public HTTPS endpoint so the iPhone can reach it from any network.
+A classic Tailscale VPN mode is also supported.
 
 You can also capture **live heart-rate data from a Wahoo strap during workouts**.
 
@@ -25,9 +27,10 @@ iPhone ──HealthKit──► IOS Health Bridge app
                               ▼
                      Mac collector (FastAPI)  ← token auth required
                               │
-                              ▼
-                       SQLite (local only)
-                              │
+                              ├──────────────────────────────────┐
+                              ▼                                  ▼
+                       SQLite (local only)          Whoop Developer API
+                              │                  (OAuth2, pulled by sync script)
                               ▼
                OpenClaw agent  →  alerts & advice
 ```
@@ -225,23 +228,99 @@ sync delivery can run reliably.
 
 ---
 
+## Whoop integration
+
+Whoop data is pulled **directly from the Whoop Developer API** — no iOS app or
+Tailscale required.  Data is stored in the same local SQLite database alongside
+Apple Health data.
+
+### Whoop Step 1 — Create a developer app
+
+1. Go to [developer.whoop.com](https://developer.whoop.com) and sign in.
+2. Create a new app.  Set the redirect URI to `http://localhost:8900/callback`.
+3. For the Privacy Policy URL, your GitHub repo URL (e.g.
+   `https://github.com/your-org/apple-health-skills`) is sufficient for a
+   personal app.
+4. Copy your **Client ID** and **Client Secret**.
+
+### Whoop Step 2 — Add credentials to `.env`
+
+```
+WHOOP_CLIENT_ID=<your-client-id>
+WHOOP_CLIENT_SECRET=<your-client-secret>
+```
+
+### Whoop Step 3 — Authorize
+
+```bash
+python scripts/setup_whoop.py
+```
+
+This opens your browser, walks through the OAuth2 flow, and saves tokens to
+`whoop_tokens.json` (git-ignored).
+
+### Whoop Step 4 — Sync data
+
+```bash
+# Pull the last 30 days for an initial backfill
+python scripts/sync_whoop.py --days 30
+```
+
+Run this on a schedule (cron or launchd) to keep data fresh:
+
+```bash
+# Example crontab entry — sync every morning at 6 AM
+0 6 * * * cd /path/to/apple-health-skills && .venv/bin/python scripts/sync_whoop.py --days 2
+```
+
+Tokens are refreshed automatically on every sync run.
+
+### Whoop environment variables (`.env`)
+
+| Variable | Description |
+|----------|-------------|
+| `WHOOP_CLIENT_ID` | OAuth2 client ID from developer.whoop.com |
+| `WHOOP_CLIENT_SECRET` | OAuth2 client secret |
+
+### Whoop data stored
+
+| Table | Contents |
+|-------|----------|
+| `whoop_cycles` | Daily strain score, kilojoule, average/max heart rate |
+| `whoop_recoveries` | Recovery score (0–100), HRV (RMSSD), resting HR, SpO₂, skin temp |
+| `whoop_sleeps` | Sleep performance %, duration, SWS/REM/wake breakdown, respiratory rate |
+| `whoop_workouts` | Sport, strain, HR, energy, heart rate zone durations |
+
+---
+
 ## Step 4 — Talk to OpenClaw
 
 Open OpenClaw, and ask your agent to use the skills apple-health-skills. Then you can ask questions about your health data
 
-Example prompts:
+Example prompts — Apple Health:
 
 - *"What's my heart rate trend over the last 24 hours?"*
 - *"How was my sleep last night? Any patterns worth watching?"*
 - *"Alert me if my heart rate goes above 130 bpm — check every 10 secs."*
 
+Example prompts — Whoop:
+
+- *"What's my Whoop recovery score today and how does it compare to this week?"*
+- *"How has my HRV trended over the last 7 days?"*
+- *"Summarize last night's sleep from Whoop."*
+- *"What was my strain like during yesterday's workout?"*
+
 When needed, OpenClaw can run:
 
 ```bash
+# Apple Health
 python scripts/query_health.py --window-hours 24 --sleep-nights 7
+
+# Whoop
+python scripts/query_whoop.py --window-days 7
 ```
 
-You can also run that query command manually at any time.
+You can also run those query commands manually at any time.
 
 ---
 
@@ -325,6 +404,8 @@ python scripts/admin_cli.py purge --days 90
 
 ## Environment variables (`.env`)
 
+### Apple Health collector
+
 | Variable | Description |
 |----------|-------------|
 | `AHB_USER_ID` | Short user identifier (e.g. `alice`) — namespaces all DB rows |
@@ -336,3 +417,10 @@ python scripts/admin_cli.py purge --days 90
 | `AHB_HOSTNAME` | Canonical hostname for QR code URLs (auto-detected from Tailscale if not set) |
 | `AHB_TLS_CERT` | Path to TLS certificate file — VPN mode only (issued by `tailscale cert`) |
 | `AHB_TLS_KEY` | Path to TLS private key file — VPN mode only |
+
+### Whoop
+
+| Variable | Description |
+|----------|-------------|
+| `WHOOP_CLIENT_ID` | OAuth2 client ID from developer.whoop.com |
+| `WHOOP_CLIENT_SECRET` | OAuth2 client secret |
