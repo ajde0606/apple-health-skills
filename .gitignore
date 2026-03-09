@@ -7,3 +7,4 @@ certs/
 exports/
 tmp/
 docs/
+whoop_tokens.json
