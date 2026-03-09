@@ -71,49 +71,58 @@ def fetch_recovery_for_cycle(cycle_id: int) -> dict[str, Any] | None:
         raise
 
 
-def fetch_recoveries(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Fetch recovery records for a list of cycles.
+def _warn_if_scope_issue(kind: str, not_found: int, total: int) -> None:
+    """Print a warning when most/all cycles return 404 for a data type.
 
-    Whoop does not expose a collection endpoint for recovery; each record must
-    be fetched individually via /v1/cycle/{cycleId}/recovery.
+    This pattern almost always means the OAuth token lacks the required scope
+    (Whoop returns 404, not 403, for unauthorized scopes).
     """
-    results = []
+    if total > 0 and not_found == total:
+        print(
+            f"\n  WARNING: All {total} {kind} requests returned 404. "
+            "This usually means your token is missing the required OAuth scope. "
+            "Re-run 'python scripts/setup_whoop.py' to re-authorize with all scopes.",
+            flush=True,
+        )
+
+
+def fetch_recoveries(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fetch recovery records for a list of cycles via /v1/cycle/{cycleId}/recovery."""
+    results: list[dict[str, Any]] = []
+    not_found = 0
     for cycle in cycles:
         rec = fetch_recovery_for_cycle(int(cycle["id"]))
         if rec is not None:
             results.append(rec)
+        else:
+            not_found += 1
+    _warn_if_scope_issue("recovery", not_found, len(cycles))
     return results
 
 
 def fetch_sleeps(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Fetch sleep records for a list of cycles.
-
-    Sleep is a sub-resource of cycles: GET /v1/cycle/{cycleId}/sleep
-    Each cycle has at most one sleep; 404 means the cycle has no sleep yet.
-    """
-    results = []
+    """Fetch sleep records for a list of cycles via /v1/cycle/{cycleId}/sleep."""
+    results: list[dict[str, Any]] = []
+    not_found = 0
     for cycle in cycles:
         try:
             results.append(_get(f"/cycle/{cycle['id']}/sleep"))
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
+                not_found += 1
                 continue
             raise
+    _warn_if_scope_issue("sleep", not_found, len(cycles))
     return results
 
 
 def fetch_workouts(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Fetch workout records for a list of cycles.
-
-    Workouts are sub-resources of cycles: GET /v1/cycle/{cycleId}/workout
-    Returns a plain list (not paginated), so _get is used directly.
-    404 means no workout recorded for that cycle.
-    """
-    results = []
+    """Fetch workout records for a list of cycles via /v1/cycle/{cycleId}/workout."""
+    results: list[dict[str, Any]] = []
+    not_found = 0
     for cycle in cycles:
         try:
             data = _get(f"/cycle/{cycle['id']}/workout")
-            # Response may be a single object or a list wrapped under a key.
             if isinstance(data, list):
                 results.extend(data)
             elif isinstance(data, dict):
@@ -124,8 +133,10 @@ def fetch_workouts(cycles: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     results.append(data)
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
+                not_found += 1
                 continue
             raise
+    _warn_if_scope_issue("workout", not_found, len(cycles))
     return results
 
 
