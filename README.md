@@ -335,6 +335,16 @@ pip install -r requirements.txt
 1. Go to [developer.garmin.com/gc-developer-program/overview](https://developer.garmin.com/gc-developer-program/overview/) and apply for Health API access.
 2. Once approved, create an application to obtain a **Consumer Key** and **Consumer Secret**.
 
+> **Privacy Policy URL:** The application form requires a Privacy Policy URL.
+> For a personal/self-hosted setup, your GitHub repo URL is sufficient (e.g.
+> `https://github.com/your-username/apple-health-skills`). Garmin does not
+> validate the URL for personal developer accounts.
+>
+> **Approval timeline:** Garmin reviews applications manually. Expect **1–2
+> weeks** for approval, though it can take up to 4 weeks during busy periods.
+> You will receive an email when your application is approved or if additional
+> information is needed.
+
 ### Step 3 — Add credentials to `.env`
 
 ```
