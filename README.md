@@ -19,6 +19,7 @@ accounts beyond what you already have.
 | **Apple Health** (Apple Watch / iPhone) | Heart rate, sleep, activity, blood glucose, and all other HealthKit types — synced over your local network |
 | **Wahoo HR strap** (or any BLE HR strap) | Live heart-rate streaming during workouts, second by second |
 | **Whoop** | Recovery score, HRV, resting HR, sleep performance, strain, and workout zones — pulled from the Whoop Developer API |
+| **Garmin** | Daily steps, resting HR, stress level, Body Battery, sleep stages, SpO₂, and activities — pulled from the Garmin Health API |
 
 ---
 
@@ -29,10 +30,11 @@ accounts beyond what you already have.
    - [Step 2 — Mac](#step-2--mac)
    - [Step 3 — Connect the iOS app](#step-3--connect-the-ios-app)
 2. [Whoop setup](#whoop-setup)
-3. [Talk to OpenClaw](#talk-to-openclaw)
-4. [Operations toolkit](#operations-toolkit)
-5. [Troubleshooting](#troubleshooting)
-6. [Environment variables](#environment-variables)
+3. [Garmin setup](#garmin-setup)
+4. [Talk to OpenClaw](#talk-to-openclaw)
+5. [Operations toolkit](#operations-toolkit)
+6. [Troubleshooting](#troubleshooting)
+7. [Environment variables](#environment-variables)
 
 ---
 
@@ -305,6 +307,85 @@ Tokens are refreshed automatically on every sync run.
 
 ---
 
+## Garmin setup
+
+Garmin data is pulled **directly from the Garmin Health API** using OAuth 1.0a
+— no iOS app or Tailscale required. Data is stored in the same local SQLite
+database alongside Apple Health and Whoop data.
+
+### Step 1 — Clone and set up environment
+
+If you haven't cloned the repo yet:
+
+```bash
+git clone https://github.com/your-org/apple-health-skills.git
+cd apple-health-skills
+```
+
+Create and activate a virtual environment, then install dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Step 2 — Register as a Garmin Health API developer
+
+1. Go to [developer.garmin.com/gc-developer-program/overview](https://developer.garmin.com/gc-developer-program/overview/) and apply for Health API access.
+2. Once approved, create an application to obtain a **Consumer Key** and **Consumer Secret**.
+
+> **Privacy Policy URL:** The application form requires a Privacy Policy URL.
+> For a personal/self-hosted setup, your GitHub repo URL is sufficient (e.g.
+> `https://github.com/your-username/apple-health-skills`). Garmin does not
+> validate the URL for personal developer accounts.
+>
+> **Approval timeline:** Garmin reviews applications manually. Expect **1–2
+> weeks** for approval, though it can take up to 4 weeks during busy periods.
+> You will receive an email when your application is approved or if additional
+> information is needed.
+
+### Step 3 — Add credentials to `.env`
+
+```
+GARMIN_CONSUMER_KEY=<your-consumer-key>
+GARMIN_CONSUMER_SECRET=<your-consumer-secret>
+```
+
+### Step 4 — Authorize
+
+```bash
+python scripts/setup_garmin.py
+```
+
+This starts a local callback server on port 8901, opens your browser for the
+OAuth 1.0a authorization flow, and saves tokens to `garmin_tokens.json`
+(git-ignored).
+
+### Step 5 — Sync data
+
+```bash
+# Pull the last 30 days for an initial backfill
+python scripts/sync_garmin.py --days 30
+```
+
+Run this on a schedule (cron or launchd) to keep data fresh:
+
+```bash
+# Example crontab entry — sync every morning at 6 AM
+0 6 * * * cd /path/to/apple-health-skills && .venv/bin/python scripts/sync_garmin.py --days 2
+```
+
+### Data stored
+
+| Table | Contents |
+|-------|----------|
+| `garmin_daily_summaries` | Steps, distance, active calories, BMR, stress level, Body Battery (charged/drained), average/resting/min/max HR, SpO₂, respiration rate, floors climbed, intensity minutes |
+| `garmin_sleeps` | Duration, deep/light/REM/awake breakdown, SpO₂, respiration rate, resting HR |
+| `garmin_activities` | Activity type, duration, distance, average/max HR, active calories, speed, pace, elevation gain |
+
+---
+
 ## Talk to OpenClaw
 
 Open OpenClaw and ask your agent to use the **apple-health-skills** skill. Then
@@ -323,6 +404,14 @@ Example prompts — Whoop:
 - *"Summarize last night's sleep from Whoop."*
 - *"What was my strain like during yesterday's workout?"*
 
+Example prompts — Garmin:
+
+- *"How many steps did I average this week?"*
+- *"What's my Body Battery trend over the last 7 days?"*
+- *"How stressed have I been this week according to Garmin?"*
+- *"Summarize my sleep from Garmin last night."*
+- *"Show me my activities from the past week."*
+
 When needed, OpenClaw runs these queries automatically:
 
 ```bash
@@ -331,6 +420,9 @@ python scripts/query_health.py --window-hours 24 --sleep-nights 7
 
 # Whoop
 python scripts/query_whoop.py --window-days 7
+
+# Garmin
+python scripts/query_garmin.py --window-days 7
 ```
 
 You can also run them manually at any time.
@@ -420,3 +512,10 @@ python scripts/admin_cli.py purge --days 90
 |----------|-------------|
 | `WHOOP_CLIENT_ID` | OAuth2 client ID from developer.whoop.com |
 | `WHOOP_CLIENT_SECRET` | OAuth2 client secret |
+
+### Garmin
+
+| Variable | Description |
+|----------|-------------|
+| `GARMIN_CONSUMER_KEY` | OAuth 1.0a consumer key from the Garmin developer portal |
+| `GARMIN_CONSUMER_SECRET` | OAuth 1.0a consumer secret |
