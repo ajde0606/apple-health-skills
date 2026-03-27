@@ -40,7 +40,7 @@ accounts beyond what you already have.
 
 Apple Health data is collected by a lightweight FastAPI server running on your
 Mac. Your iPhone pushes HealthKit samples to it over HTTPS using the
-**IOS Health Bridge** app.
+**A Health Bridge** app (https://apps.apple.com/us/app/a-health-bridge/id6761038156).
 
 Two network modes are supported:
 
@@ -51,11 +51,11 @@ Two network modes are supported:
 
 ### Step 1 — iPhone
 
-Install from the App Store:
+Install from the App Store (https://apps.apple.com/us/app/a-health-bridge/id6761038156):
 
 | App | Purpose |
 |-----|---------|
-| **IOS Health Bridge** | Reads HealthKit and uploads to your Mac |
+| **A Health Bridge** | Reads HealthKit and uploads to your Mac |
 
 For live workout heart-rate streaming:
 
