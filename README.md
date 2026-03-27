@@ -196,7 +196,7 @@ https://<tailscale-ip>:8443/qr
 
 Then:
 
-1. Open **IOS Health Bridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
+1. Open **A Health Bridge** on your iPhone → tap the **gear icon** → tap **Scan QR Code**.
 2. Point the camera at the QR code. All fields fill in automatically, including the public Funnel URL.
 
 > **HTTPS is always used** in Funnel mode — Tailscale provides it at the edge.
@@ -226,7 +226,7 @@ timestamped events for startup, `/healthz`, `/qr`, and `/ingest` requests.
 
 #### 3.3 Enable background refresh
 
-On iPhone, allow background app refresh for **IOS Health Bridge** so
+On iPhone, allow background app refresh for **A Health Bridge** so
 background sync delivery can run reliably.
 
 ---
