@@ -24,7 +24,7 @@ accounts beyond what you already have.
 
 ## Contents
 
-1. [Apple Health setup](#apple-health-setup)
+1. [Apple Health & Wahoo setup](#apple-health-setup)
    - [Step 1 — iPhone](#step-1--iphone)
    - [Step 2 — Mac](#step-2--mac)
    - [Step 3 — Connect the iOS app](#step-3--connect-the-ios-app)
@@ -36,9 +36,9 @@ accounts beyond what you already have.
 
 ---
 
-## Apple Health setup
+## Apple Health & Wahoo setup
 
-Apple Health data is collected by a lightweight FastAPI server running on your
+Apple Health & Wahoo Live Heart Rate data are collected by a lightweight FastAPI server running on your
 Mac. Your iPhone pushes HealthKit samples to it over HTTPS using the
 **A Health Bridge** app (https://apps.apple.com/us/app/a-health-bridge/id6761038156).
 
@@ -46,7 +46,7 @@ Two network modes are supported:
 
 | Mode | How it works |
 |------|-------------|
-| **Tailscale Funnel** (default) | Your Mac gets a public HTTPS endpoint — no Tailscale on the iPhone needed |
+| **Tailscale Funnel** (default/recommended) | Your Mac gets a public HTTPS endpoint — no Tailscale on the iPhone needed |
 | **Tailscale VPN** | Classic VPN; iPhone must have Tailscale installed |
 
 ### Step 1 — iPhone
