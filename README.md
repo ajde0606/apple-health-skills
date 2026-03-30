@@ -305,6 +305,49 @@ Tokens are refreshed automatically on every sync run.
 
 ---
 
+
+## Publish to OpenClaw Skills
+
+This repo already contains a ready-to-package OpenClaw skill in `openclaw-skill/`.
+
+### 1) Build the publishable zip
+
+```bash
+bash scripts/publish_openclaw_skill.sh --version v1.0.0 --clean
+```
+
+This creates:
+
+- `dist/openclaw-skill/` (staged skill folder)
+- `dist/apple-health-skills-openclaw-v1.0.0.zip` (upload artifact)
+
+### 2) Verify archive contents
+
+```bash
+unzip -l dist/apple-health-skills-openclaw-v1.0.0.zip
+```
+
+You should see:
+
+- `openclaw-skill/SKILL.md`
+- `openclaw-skill/WHOOP_SKILL.md`
+- `openclaw-skill/scripts/query_health.py`
+- `openclaw-skill/scripts/query_live_hr.py`
+- `openclaw-skill/scripts/query_whoop.py`
+
+### 3) Submit in OpenClaw Skills
+
+In the OpenClaw skills publisher UI:
+
+1. Create a new skill submission.
+2. Upload `dist/apple-health-skills-openclaw-v1.0.0.zip`.
+3. Set visibility, tags, and description.
+4. Publish and install into your OpenClaw workspace.
+
+If your OpenClaw publisher requires a Git URL instead of a zip, use this repo URL and point it to the `openclaw-skill/` directory.
+
+---
+
 ## Talk to OpenClaw
 
 Open OpenClaw and ask your agent to use the **apple-health-skills** skill. Then
